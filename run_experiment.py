@@ -46,7 +46,7 @@ if config.env_name.startswith('cule'):
     # env = CuleEnvWrapper(env_name=env_name, tree_depth=config.tree_depth, gamma=config.gamma,
     #                      color_mode=color, rescale_frame=rescale, frame_stack=config.frame_stack)
     env = CuleEnvWrapper(env_name=env_name, tree_depth=config.tree_depth, gamma=config.gamma,
-    #                      color_mode=color, rescale_frame=rescale, frame_stack=config.frame_stack)
+                          color_mode=color, rescale_frame=rescale, frame_stack=config.frame_stack)
 else:
     orig_env = gym.make(config.env_name)
     # rew_normalization_factor, obs_normalization_factor = env_normalization_table.get(config.env_name, (1.0, 1.0))
