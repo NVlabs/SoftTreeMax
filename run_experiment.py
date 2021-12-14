@@ -7,7 +7,7 @@ import stable_baselines3
 from environments.cule_env import CuleEnv
 
 # os.environ["WANDB_MODE"] = "dryrun"
-os.environ["WANDB_BASE_URL"] = "http://api.wandb.ai"
+# os.environ["WANDB_BASE_URL"] = "http://api.wandb.ai"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--total_timesteps', type=int, default=50000000)
@@ -43,10 +43,8 @@ if config.env_name.startswith('cule'):
     if config.warp_frame:
         color = 'gray'
         rescale = True
-    # env = CuleEnvWrapper(env_name=env_name, tree_depth=config.tree_depth, gamma=config.gamma,
-    #                      color_mode=color, rescale_frame=rescale, frame_stack=config.frame_stack)
-    env = CuleEnvWrapper(env_name=env_name, tree_depth=config.tree_depth, gamma=config.gamma,
-                          color_mode=color, rescale_frame=rescale, frame_stack=config.frame_stack)
+    env = CuleEnv(env_name=env_name, tree_depth=config.tree_depth, gamma=config.gamma,
+                          color_mode=color, rescale_frame=rescale, episodic_life=True)
 else:
     orig_env = gym.make(config.env_name)
     # rew_normalization_factor, obs_normalization_factor = env_normalization_table.get(config.env_name, (1.0, 1.0))

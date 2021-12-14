@@ -5,12 +5,12 @@ from torchcule.atari import Env as AtariEnv
 from torchcule.atari import Rom as AtariRom
 
 class CuleEnv():
-  def __init__(self, args, full_env_name):
-    env_name = full_env_name
+  def __init__(self, env_name, args, color_mode, rescale_frame, episodic_life):
     self.device = args.device
     cart = AtariRom(env_name)
     actions = cart.minimal_actions()
-    self.env = AtariEnv(env_name, num_envs=1, color_mode='gray', repeat_prob=0.0, device=torch.device("cpu"), rescale=True, episodic_life=False, frameskip=4, action_set=actions)
+    self.env = AtariEnv(env_name, num_envs=1, color_mode=color_mode, repeat_prob=0.0, device=torch.device("cpu"),
+                        rescale=rescale_frame, episodic_life=episodic_life, frameskip=4, action_set=actions)
     super(AtariEnv, self.env).reset(0)
     self.env.reset(initial_steps=1, verbose=1)
     self.actions = dict([i, e] for i, e in zip(range(len(actions)), actions))
