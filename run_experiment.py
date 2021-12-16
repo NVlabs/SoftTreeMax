@@ -3,7 +3,8 @@ import gym
 import wandb
 import os
 import argparse
-import stable_baselines3
+from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 from environments.cule_env import CuleEnv
 
 # os.environ["WANDB_MODE"] = "dryrun"
@@ -57,6 +58,8 @@ else:
     if config.frame_stack > 1:
         env = FrameStack(env, config.frame_stack)
 
+policy_kwargs = {}
+model = PPO(env, verbose=1, learning_rate=config.learning_rate, gamma=config.gamma, policy_kwargs=policy_kwargs)
 
 if not config.eval_saved_agent:
     # save agent folder and name
