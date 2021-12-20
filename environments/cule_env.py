@@ -4,24 +4,24 @@ import cv2  # Note that importing cv2 before torch may cause segfaults?
 from torchcule.atari import Env as AtariEnv
 from torchcule.atari import Rom as AtariRom
 
+
 class CuleEnv():
-  def __init__(self, env_name, args, color_mode, rescale_frame, episodic_life):
-    self.device = args.device
+  def __init__(self, env_name, device, env_kwargs, n_frame_stack=4):
+    self.device = device
     cart = AtariRom(env_name)
     actions = cart.minimal_actions()
-    self.env = AtariEnv(env_name, num_envs=1, color_mode=color_mode, repeat_prob=0.0, device=torch.device("cpu"),
-                        rescale=rescale_frame, episodic_life=episodic_life, frameskip=4, action_set=actions)
+    self.env = AtariEnv(env_name, num_envs=1, device=torch.device("cpu"), **env_kwargs)
     super(AtariEnv, self.env).reset(0)
     self.env.reset(initial_steps=1, verbose=1)
     self.actions = dict([i, e] for i, e in zip(range(len(actions)), actions))
     self.lives = 0  # Life counter (used in DeepMind training)
     self.life_termination = False  # Used to check if resetting only from loss of life
-    self.window = args.history_length  # Number of frames to concatenate
-    self.state_buffer = deque([], maxlen=args.history_length)
+    self.n_frame_stack = n_frame_stack  # Number of frames to concatenate
+    self.state_buffer = deque([], maxlen=n_frame_stack)
     self.training = True  # Consistent with model training mode
 
   def _reset_buffer(self):
-    for _ in range(self.window):
+    for _ in range(self.n_frame_stack):
       self.state_buffer.append(torch.zeros(84, 84, device=self.device))
 
   def reset(self):

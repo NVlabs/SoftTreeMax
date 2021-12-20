@@ -27,25 +27,21 @@ parser.add_argument('--normalize_images', type=str2bool, nargs='?', const=True, 
 parser.add_argument('--exploration_fraction', type=float, default=0.02)
 parser.add_argument('--eval_saved_agent', type=str2bool, nargs='?', const=True, default=False)
 parser.add_argument('--saved_model', type=str, default=None)
-parser.add_argument('--warp_frame', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--frame_stack', type=int, default=4)
 parser.add_argument('--n_eval_ep', type=int, default=10)
 
-args = vars(parser.parse_args())
-wandb.init(config=args, project="pg-tree")
+wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
 normalize_images = config.normalize_images
 print('tree_depth: {}'.format(config.tree_depth))
 
+
+env_kwargs = dict(color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=True, frameskip=4)
+
+
 if config.env_name.startswith('cule'):
     env_name = config.env_name[5:]
-    color = 'rgb'
-    rescale = False
-    if config.warp_frame:
-        color = 'gray'
-        rescale = True
-    env = CuleEnv(env_name=env_name, tree_depth=config.tree_depth, gamma=config.gamma,
-                          color_mode=color, rescale_frame=rescale, episodic_life=True)
+    env = CuleEnv(env_name=env_name, env_kwargs=env_kwargs)
 else:
     orig_env = gym.make(config.env_name)
     # rew_normalization_factor, obs_normalization_factor = env_normalization_table.get(config.env_name, (1.0, 1.0))
