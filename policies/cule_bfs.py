@@ -6,23 +6,16 @@ CROSSOVER_DICT = {'MsPacman': 1, 'Breakout': 2, 'Assault': 2, 'Krull': 2, 'Pong'
 
 
 class CuleBFS():
-    def __init__(self, env_name, tree_depth, env_kwargs, gamma=0.99, verbose=False, ale_start_steps=1,
-                 ignore_value_function=False, step_env=None, args=None):
-        self.env_kwargs = env_kwargs
+    def __init__(self, step_env, tree_depth, gamma=0.99):
+        self.env_kwargs = step_env.env_kwargs
         self.crossover_level = 1
         for k, v in CROSSOVER_DICT.items():
-            if k in env_name:
+            if k in step_env.env_kwargs['env_name']:
                 self.crossover_level = v
                 break
-        self.args = args
-        self.verbose = verbose
-        self.ale_start_steps = ale_start_steps
         self.gamma = gamma
         self.max_depth = tree_depth
-        self.env_name = env_name
-        self.ignore_value_function = ignore_value_function
-
-        cart = AtariRom(env_name)
+        cart = AtariRom(step_env.env_kwargs['env_name'])
         self.min_actions = cart.minimal_actions()
         self.min_actions_size = len(self.min_actions)
         num_envs = self.min_actions_size ** tree_depth
@@ -44,10 +37,10 @@ class CuleBFS():
         self.trunc_count = 0
 
     def get_env(self, num_envs, device):
-        env = AtariEnv(self.env_name, num_envs, device=device, action_set=self.min_actions, **self.env_kwargs)
+        env = AtariEnv(num_envs=num_envs, device=device, action_set=self.min_actions, **self.env_kwargs)
         super(AtariEnv, env).reset(0)
         initial_steps_rand = 1
-        env.reset(initial_steps=initial_steps_rand, verbose=self.verbose)
+        env.reset(initial_steps=initial_steps_rand, verbose=True)
         # env.train()
         return env
 
@@ -106,13 +99,12 @@ class CuleBFS():
 
                 # To properly compute the output observations we need the last frame AND the second to last frame.
                 # On the second to last step we need to update the frame buffers
-                if not self.ignore_value_function:
-                    if frame == (depth_env.frameskip - 2):
-                        depth_env.generate_frames(depth_env.rescale, False, depth_env.num_channels,
-                                                  depth_env.observations2[:num_envs].data_ptr())
-                    if frame == (depth_env.frameskip - 1):
-                        depth_env.generate_frames(depth_env.rescale, False, depth_env.num_channels,
-                                                  depth_env.observations1[:num_envs].data_ptr())
+                if frame == (depth_env.frameskip - 2):
+                    depth_env.generate_frames(depth_env.rescale, False, depth_env.num_channels,
+                                              depth_env.observations2[:num_envs].data_ptr())
+                if frame == (depth_env.frameskip - 1):
+                    depth_env.generate_frames(depth_env.rescale, False, depth_env.num_channels,
+                                              depth_env.observations1[:num_envs].data_ptr())
             new_obs = torch.max(depth_env.observations1[:num_envs], depth_env.observations2[:num_envs])
             new_obs = new_obs / 255
             # import matplotlib.pyplot as plt

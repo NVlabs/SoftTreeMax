@@ -1,3 +1,4 @@
+from policies.actor_critic_ts import ActorCriticCnnTSPolicy
 from utils import str2bool
 import gym
 import wandb
@@ -5,9 +6,10 @@ import os
 import argparse
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+from stable_baselines3.common.utils import get_device
 from environments.cule_env import CuleEnv
 
-# os.environ["WANDB_MODE"] = "dryrun"
+os.environ["WANDB_MODE"] = "dryrun"
 # os.environ["WANDB_BASE_URL"] = "http://api.wandb.ai"
 
 parser = argparse.ArgumentParser()
@@ -18,7 +20,8 @@ parser.add_argument('--learning_rate', type=float, default=2.5e-05)
 parser.add_argument('--target_update_interval', type=int, default=10000)
 parser.add_argument('--exploration_final_eps', type=float, default=0.1)
 parser.add_argument('--seed', type=int, default=4)
-parser.add_argument('--env_name', type=str, default='cule_BreakoutNoFrameskip-v4')
+parser.add_argument('--env_name', type=str, default='BreakoutNoFrameskip-v4')
+parser.add_argument('--use_cule', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--evaluate_freq', type=int, default=100)
 parser.add_argument('--tree_depth', type=int, default=0)
@@ -35,11 +38,11 @@ config = wandb.config
 normalize_images = config.normalize_images
 print('tree_depth: {}'.format(config.tree_depth))
 
-env_kwargs = dict(color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=True, frameskip=4)
+env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=True,
+                  frameskip=4)
 
-if config.env_name.startswith('cule'):
-    env_name = config.env_name[5:]
-    env = CuleEnv(env_name=env_name, env_kwargs=env_kwargs)
+if config.use_cule:
+    env = CuleEnv(env_kwargs=env_kwargs, device=get_device(), n_frame_stack=config.n_frame_stack)
 else:
     orig_env = gym.make(config.env_name)
     # rew_normalization_factor, obs_normalization_factor = env_normalization_table.get(config.env_name, (1.0, 1.0))
@@ -52,8 +55,9 @@ else:
     if config.n_frame_stack > 1:
         env = FrameStack(env, config.n_frame_stack)
 
-policy_kwargs = {}
-model = PPO(env, verbose=1, learning_rate=config.learning_rate, gamma=config.gamma, policy_kwargs=policy_kwargs)
+policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth}
+model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, learning_rate=config.learning_rate, gamma=config.gamma,
+            policy_kwargs=policy_kwargs)
 
 if not config.eval_saved_agent:
     # save agent folder and name

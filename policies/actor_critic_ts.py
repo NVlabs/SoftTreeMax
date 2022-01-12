@@ -1,15 +1,15 @@
 from typing import Tuple
 import torch as th
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
-from cule_bfs import CuleBFS
+from policies.cule_bfs import CuleBFS
 
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
-    def __init__(self, **kwargs):
-        super(ActorCriticCnnPolicy, self).__init__(kwargs)
-        self.cule_bfs = CuleBFS(env_name=full_env_name, tree_depth=args.tree_depth, verbose=False,
-                                ale_start_steps=1, ignore_value_function=False, perturb_reward=True, step_env=env.env,
-                                args=args)
+    def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env,
+                 **kwargs):
+        super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
+        # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
+        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma)
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
@@ -19,7 +19,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         :param deterministic: Whether to sample or use deterministic actions
         :return: action, value and log probability of the action
         """
-        leaves_observations, rewards = self.cule_bfs.bfs(obs, )
+        leaves_observations, rewards = self.cule_bfs.bfs(obs, tree_depth, n_frame_stack)
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         latent_pi, latent_vf = self.mlp_extractor(features)
