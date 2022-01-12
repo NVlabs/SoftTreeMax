@@ -44,8 +44,6 @@ class CuleEnv():
     # self.lives = None # self.ale.lives() #TODO: update for other games
     return torch.stack(list(self.state_buffer), 0)
 
-
-
   def step(self, action):
     # Repeat action 4 times, max pool over last 2 frames
     obs, reward, done, info = self.env.step(torch.tensor([action]))

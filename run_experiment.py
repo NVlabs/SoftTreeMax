@@ -27,7 +27,7 @@ parser.add_argument('--normalize_images', type=str2bool, nargs='?', const=True, 
 parser.add_argument('--exploration_fraction', type=float, default=0.02)
 parser.add_argument('--eval_saved_agent', type=str2bool, nargs='?', const=True, default=False)
 parser.add_argument('--saved_model', type=str, default=None)
-parser.add_argument('--frame_stack', type=int, default=4)
+parser.add_argument('--n_frame_stack', type=int, default=4)
 parser.add_argument('--n_eval_ep', type=int, default=10)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
@@ -35,9 +35,7 @@ config = wandb.config
 normalize_images = config.normalize_images
 print('tree_depth: {}'.format(config.tree_depth))
 
-
 env_kwargs = dict(color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=True, frameskip=4)
-
 
 if config.env_name.startswith('cule'):
     env_name = config.env_name[5:]
@@ -51,8 +49,8 @@ else:
     # env = FireResetEnv(env)
     if config.warp_frame:
         env = WarpFrame(env)
-    if config.frame_stack > 1:
-        env = FrameStack(env, config.frame_stack)
+    if config.n_frame_stack > 1:
+        env = FrameStack(env, config.n_frame_stack)
 
 policy_kwargs = {}
 model = PPO(env, verbose=1, learning_rate=config.learning_rate, gamma=config.gamma, policy_kwargs=policy_kwargs)
