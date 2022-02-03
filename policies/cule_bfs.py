@@ -25,7 +25,7 @@ class CuleBFS():
             self.cpu_env = self.gpu_env
         else:
             self.cpu_env = self.get_env(num_envs, device=torch.device("cpu"))
-        self.step_env = step_env
+        self.step_env = step_env.env
 
         self.num_leaves = num_envs
         self.gpu_actions = self.gpu_env.action_set
