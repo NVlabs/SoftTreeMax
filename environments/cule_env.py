@@ -40,39 +40,40 @@ class CuleEnv():
         obs = torch.zeros(84, 84, device=self.device)
         if self.life_termination:
             self.life_termination = False  # Reset flag
-            self.env.step([0])  # Use a no-op after loss of life
+            self.env.step(torch.tensor([0]))  # Use a no-op after loss of life
         else:
             # Reset internals
             self._reset_buffer()
             # Perform up to 30 random no-ops before starting
             obs = self.env.reset(initial_steps=1, verbose=1)
+            self.env.lives[0] = 5  # Assaf: reset doesn't handle this?
             obs = obs[0, :, :, 0].to(self.device)
 
-        obs = obs / 255
+        # obs = obs / 255
         self.last_frame = obs
         self.state_buffer.append(obs)
         # self.env.step(torch.tensor([1]))
-        self.lives = self.env.lives  # TODO: update for other games
+        self.lives = self.env.lives.item()  # TODO: update for other games
         # self.lives = None # self.ale.lives() #TODO: update for other games
-        return torch.stack(list(self.state_buffer), 0)
+        return torch.stack(list(self.state_buffer), 0).cpu().numpy()
 
     def step(self, action):
         # Repeat action 4 times, max pool over last 2 frames
         obs, reward, done, info = self.env.step(torch.tensor([action]))
         if self.lives is None:
             self.lives = self.env.lives.item()
-        obs = obs[0, :, :, 0].to(self.device) / 255
+        obs = obs[0, :, :, 0].to(self.device) # / 255
         self.state_buffer.append(obs)
         self.last_frame = obs
         # Detect loss of life as terminal in training mode
-        lives = info['ale.lives'][0]
+        lives = info['ale.lives'][0].item()
         if self.training:
             if lives < self.lives and lives > 0:  # Lives > 0 for Q*bert
-                self.life_termination = not done  # Only set flag when not truly done
+                self.life_termination = True  # not done  # Only set flag when not truly done TODO: Why?
                 done = True
         self.lives = lives
         # Return state, reward, done
-        return torch.stack(list(self.state_buffer), 0), reward, done
+        return torch.stack(list(self.state_buffer), 0).cpu().numpy(), reward[0].cpu().numpy(), done, info
 
     # Uses loss of life as terminal signal
     def train(self):
