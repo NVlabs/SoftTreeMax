@@ -35,6 +35,7 @@ class CuleBFS():
         self.envs = [self.gpu_env]
         self.num_envs = 1
         self.trunc_count = 0
+        self.n_frame_stack = step_env.n_frame_stack
 
     def get_env(self, num_envs, device):
         env = AtariEnv(num_envs=num_envs, device=device, action_set=self.min_actions, **self.env_kwargs)
@@ -44,7 +45,7 @@ class CuleBFS():
         # env.train()
         return env
 
-    def bfs(self, state, tree_depth, n_frame_stack):
+    def bfs(self, state, tree_depth):
         state_clone = state.clone().detach()
 
         cpu_env = self.cpu_env
@@ -113,7 +114,7 @@ class CuleBFS():
             #     plt.show()
             new_obs = new_obs.squeeze(dim=-1).unsqueeze(dim=1).to(self.device)
             state_clone = self.replicate_state(state_clone)
-            state_clone = torch.cat((state_clone[:, 1: n_frame_stack, :, :], new_obs), dim=1)
+            state_clone = torch.cat((state_clone[:, 1: self.n_frame_stack, :, :], new_obs), dim=1)
             # obs = obs[:num_envs].to(gpu_env.device).permute((0, 3, 1, 2))
             # Waits for everything to finish running
             torch.cuda.synchronize()
