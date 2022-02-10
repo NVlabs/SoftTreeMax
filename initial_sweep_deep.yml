@@ -5,7 +5,7 @@ metric:
   name: episodic_reward
 parameters:
   tree_depth:
-    values: [0, 1, 2]
+    values: [0, 1, 2, 3]
   seed:
     values: [1]
   env_name:
@@ -24,8 +24,4 @@ parameters:
       'cule_CentipedeNoFrameskip-v4',
       'cule_ChopperCommandNoFrameskip-v4',
       'cule_CrazyClimberNoFrameskip-v4',
-      'cule_DoubleDunkNoFrameskip-v4',
-      'cule_EnduroNoFrameskip-v4',
-      'cule_FishingDerbyNoFrameskip-v4',
-      'cule_FreewayNoFrameskip-v4',
-      'cule_FrostbiteNoFrameskip-v4']
+      'cule_DoubleDunkNoFrameskip-v4']
