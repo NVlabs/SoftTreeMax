@@ -10,8 +10,9 @@ from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from environments.cule_env import CuleEnv
+# from wandb.integration.sb3 import WandbCallback
 
-os.environ["WANDB_MODE"] = "dryrun"
+# os.environ["WANDB_MODE"] = "dryrun"
 # os.environ["WANDB_BASE_URL"] = "http://api.wandb.ai"
 
 parser = argparse.ArgumentParser()
@@ -59,10 +60,14 @@ else:
 
 print("Environment: ", config.env_name, "Num actions: ", env.action_space.n)
 
-# policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth}
-# model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs)
+if config.tree_depth == 0:
+    model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2)
+else:
+    policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth}
+    model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs)
+# learning_rate=config.learning_rate,
 
-model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2)
+
 
 if not config.eval_saved_agent:
     # save agent folder and name
@@ -75,8 +80,8 @@ if not config.eval_saved_agent:
     # eval_callback = EvalCallback(eval_env=env, n_eval_episodes=5, eval_freq=50000, render=False, verbose=0)
     # save agent
     saved_agent_file = '{}/{}'.format(saved_agents_dir, wandb.run.id)
-    checkpoint_callback = CheckpointCallback(save_freq=int(2e6), save_path=saved_agents_dir, name_prefix=wandb.run.id)
-    callbacks = [checkpoint_callback, WandbTrainingCallback()]
+    # checkpoint_callback = CheckpointCallback(save_freq=int(2e6), save_path=saved_agents_dir, name_prefix=wandb.run.id)
+    callbacks = [WandbTrainingCallback()]
     model.learn(total_timesteps=config.total_timesteps, log_interval=None, callback=callbacks)
 
     print("Saving agent in " + saved_agent_file)

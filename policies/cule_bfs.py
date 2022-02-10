@@ -8,7 +8,7 @@ CROSSOVER_DICT = {'MsPacman': 1, 'Breakout': 2, 'Assault': 2, 'Krull': 2, 'Pong'
 class CuleBFS():
     def __init__(self, step_env, tree_depth, gamma=0.99):
         self.env_kwargs = step_env.env_kwargs
-        self.crossover_level = 1
+        self.crossover_level = 10
         for k, v in CROSSOVER_DICT.items():
             if k in step_env.env_kwargs['env_name']:
                 self.crossover_level = v
@@ -94,6 +94,7 @@ class CuleBFS():
                 # Execute backend call to the C++ step function with environment data
                 super(AtariEnv, depth_env).step(depth_env.fire_reset and depth_env.is_training, False,
                                                 depth_actions.data_ptr(), 0, depth_env.done.data_ptr(), 0)
+                # TODO: do we need this every frame, or just in the end?
                 # Update the reward, done, and lives flags
                 depth_env.get_data(depth_env.episodic_life, self.gamma ** depth, depth_env.done.data_ptr(),
                                    depth_env.rewards.data_ptr(), depth_env.lives.data_ptr())
@@ -107,7 +108,7 @@ class CuleBFS():
                     depth_env.generate_frames(depth_env.rescale, False, depth_env.num_channels,
                                               depth_env.observations1[:num_envs].data_ptr())
             new_obs = torch.max(depth_env.observations1[:num_envs], depth_env.observations2[:num_envs])
-            new_obs = new_obs / 255
+            # new_obs = new_obs / 255
             # import matplotlib.pyplot as plt
             # for i in range(4):
             #     plt.imshow(state_clone[i][0].cpu())

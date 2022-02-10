@@ -20,9 +20,12 @@ class WandbTrainingCallback(BaseCallback):
             self.prev_life = int(info["ale.lives"][0])
         else:
             done = int(self.locals["dones"][0])
+        # if False:
         if done:
             wandb.log({"train\episodic_reward": self.total_rewards}, step=self.model.num_timesteps)
             wandb.log({"train\episodic_length": self.episode_length}, step=self.model.num_timesteps)
             wandb.log({"num_steps": self.model.num_timesteps}, step=self.model.num_timesteps)
+            for key, val in self.locals["self"].logger.name_to_value.items():
+                wandb.log({key: val}, step=self.model.num_timesteps)
             self.total_rewards = 0
             self.episode_length = 0
