@@ -10,20 +10,23 @@ from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from environments.cule_env import CuleEnv
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.utils import get_linear_fn
+
 # from wandb.integration.sb3 import WandbCallback
 
 # os.environ["WANDB_MODE"] = "dryrun"
 # os.environ["WANDB_BASE_URL"] = "http://api.wandb.ai"
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--total_timesteps', type=int, default=50000000)
+parser.add_argument('--total_timesteps', type=int, default=40000000)
 parser.add_argument('--train_freq', type=int, default=50000)
 parser.add_argument('--exploration_initial_eps', type=int, default=1)
 parser.add_argument('--learning_rate', type=float, default=2.5e-05)
 parser.add_argument('--target_update_interval', type=int, default=10000)
 parser.add_argument('--exploration_final_eps', type=float, default=0.1)
 parser.add_argument('--seed', type=int, default=4)
-parser.add_argument('--env_name', type=str, default='BreakoutNoFrameskip-v4')
+parser.add_argument('--env_name', type=str, default='SpaceInvadersNoFrameskip-v4')
 parser.add_argument('--use_cule', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--evaluate_freq', type=int, default=100)
@@ -46,6 +49,8 @@ env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, 
 
 if config.use_cule:
     env = CuleEnv(env_kwargs=env_kwargs, device=get_device(), n_frame_stack=config.n_frame_stack)
+    # env = make_vec_env(CuleEnv, n_envs=8, env_kwargs={'env_kwargs': env_kwargs, 'device': get_device(),
+    #                                             'n_frame_stack':config.n_frame_stack})
 else:
     orig_env = gym.make(config.env_name)
     # rew_normalization_factor, obs_normalization_factor = env_normalization_table.get(config.env_name, (1.0, 1.0))
@@ -60,11 +65,15 @@ else:
 
 print("Environment: ", config.env_name, "Num actions: ", env.action_space.n)
 
+ppo_def_lr = get_linear_fn(2.5e-4, 0, 1)
+ppo_def_clip = get_linear_fn(0.1, 0, 1)
+PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3, 'gamma': 0.99, 'n_steps': 128, 'batch_size': 32,
+              'ent_coef': 0.01, 'vf_coef': 1.0, 'gae_lambda': 0.95, 'clip_range': ppo_def_clip}
 if config.tree_depth == 0:
-    model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2)
+    model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)
 else:
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth}
-    model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs)
+    model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs, **PPO_params)
 # learning_rate=config.learning_rate,
 
 

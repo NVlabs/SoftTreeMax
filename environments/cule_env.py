@@ -9,7 +9,7 @@ from gym import spaces
 import math
 
 
-class CuleEnv():
+class CuleEnv(gym.Env):
     def __init__(self, device, env_kwargs, n_frame_stack=4):
         self.device = device
         self.env_kwargs = env_kwargs
