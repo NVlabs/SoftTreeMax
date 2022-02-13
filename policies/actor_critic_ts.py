@@ -8,7 +8,7 @@ from policies.cule_bfs import CuleBFS
 
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
-    def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env,
+    def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
                  **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
@@ -17,6 +17,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         self.obs2leaves_dict = {}
         self.timestep2obs_dict = {}
         self.obs2timestep_dict = {}
+        self.buffer_size = buffer_size
         self.alpha = 1
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
@@ -70,10 +71,10 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         # same_action_indexes = th.arange(slice_length*actions[0], slice_length*(actions[0]+1), device=actions.device)
         # log_prob = th.log(th.sum(th.exp(distribution.log_prob(same_action_indexes)), dim=0, keepdim=True))
         # TODO: handle fire
-        if self.time_step - 2048 in self.timestep2obs_dict:
-            del self.obs2leaves_dict[self.timestep2obs_dict[self.time_step - 2048]]
-            del self.obs2timestep_dict[self.timestep2obs_dict[self.time_step - 2048]]
-            del self.timestep2obs_dict[self.time_step - 2048]
+        if self.time_step - self.buffer_size in self.timestep2obs_dict:
+            del self.obs2leaves_dict[self.timestep2obs_dict[self.time_step - self.buffer_size]]
+            del self.obs2timestep_dict[self.timestep2obs_dict[self.time_step - self.buffer_size]]
+            del self.timestep2obs_dict[self.time_step - self.buffer_size]
         self.time_step += 1
         return actions, values, log_prob
 
