@@ -1,21 +1,29 @@
 import torch
 from torchcule.atari import Env as AtariEnv
 from torchcule.atari import Rom as AtariRom
+from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 
 CROSSOVER_DICT = {'MsPacman': 1, 'Breakout': 2, 'Assault': 2, 'Krull': 2, 'Pong': 1, 'Boxing': 1, 'Asteroids': 1}
 
 
 class CuleBFS():
     def __init__(self, step_env, tree_depth, gamma=0.99):
-        self.env_kwargs = step_env.env_kwargs
+        if type(step_env) == DummyVecEnv:
+            self.multiple_envs = True
+            self.env_kwargs = step_env.envs[0].env_kwargs
+            self.n_frame_stack = step_env.envs[0].n_frame_stack
+        else:
+            self.multiple_envs = False
+            self.env_kwargs = step_env.env_kwargs
+            self.n_frame_stack = step_env.n_frame_stack
         self.crossover_level = 10
         for k, v in CROSSOVER_DICT.items():
-            if k in step_env.env_kwargs['env_name']:
+            if k in self.env_kwargs['env_name']:
                 self.crossover_level = v
                 break
         self.gamma = gamma
         self.max_depth = tree_depth
-        cart = AtariRom(step_env.env_kwargs['env_name'])
+        cart = AtariRom(self.env_kwargs['env_name'])
         self.min_actions = cart.minimal_actions()
         self.min_actions_size = len(self.min_actions)
         num_envs = self.min_actions_size ** tree_depth
@@ -25,7 +33,10 @@ class CuleBFS():
             self.cpu_env = self.gpu_env
         else:
             self.cpu_env = self.get_env(num_envs, device=torch.device("cpu"))
-        self.step_env = step_env.env
+        if type(step_env) == DummyVecEnv:
+            self.step_env = step_env.envs
+        else:
+            self.step_env = step_env.env
 
         self.num_leaves = num_envs
         self.gpu_actions = self.gpu_env.action_set
@@ -35,7 +46,7 @@ class CuleBFS():
         self.envs = [self.gpu_env]
         self.num_envs = 1
         self.trunc_count = 0
-        self.n_frame_stack = step_env.n_frame_stack
+
 
     def get_env(self, num_envs, device):
         env = AtariEnv(num_envs=num_envs, device=device, action_set=self.min_actions, **self.env_kwargs)
