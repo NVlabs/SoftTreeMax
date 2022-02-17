@@ -12,12 +12,18 @@ class WandbTrainingCallback(BaseCallback):
         self.prev_life = 0
 
     def _on_step(self) -> bool:
-        self.total_rewards += np.mean(self.locals["rewards"])
-        self.episode_length += 1
+        # self.total_rewards += np.mean(self.locals["rewards"])
         info = self.locals["infos"][0]
-        if info.get("ale.lives"):
-            done = int(info["ale.lives"][0]) > self.prev_life
-            self.prev_life = int(info["ale.lives"][0])
+        if "orig_reward" in info:
+            self.total_rewards += info["orig_reward"]
+        self.episode_length += 1
+
+        if "ale.lives" in info:
+            ale_lives = int(info["ale.lives"][0]) if type(info["ale.lives"]) == list else int(info["ale.lives"])
+            done = ale_lives > self.prev_life
+            if done:
+                assert self.prev_life == 0, "Error: Lives went up but did not reach 0 before!"
+            self.prev_life = ale_lives
         else:
             done = int(self.locals["dones"][0])
         # if False:

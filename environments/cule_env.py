@@ -10,7 +10,7 @@ import math
 
 
 class CuleEnv(gym.Env):
-    def __init__(self, device, env_kwargs, n_frame_stack=4):
+    def __init__(self, device, env_kwargs, n_frame_stack=4, noop_max=30, clip_reward=True, fire_reset=True):
         self.device = device
         self.env_kwargs = env_kwargs
         cart = AtariRom(env_kwargs['env_name'])
@@ -23,6 +23,9 @@ class CuleEnv(gym.Env):
         self.n_frame_stack = n_frame_stack  # Number of frames to concatenate
         self.state_buffer = deque([], maxlen=n_frame_stack)
         self.training = True  # Consistent with model training mode
+        self.noop_max = noop_max
+        self.clip_reward = clip_reward
+        self.fire_reset = fire_reset
 
         # Stable baselines requirements
         self.reward_range = (-math.inf, math.inf)
@@ -37,6 +40,18 @@ class CuleEnv(gym.Env):
             self.state_buffer.append(torch.zeros(84, 84, device=self.device))
 
     def reset(self):
+        obs = self.reset_no_fire()
+        if not self.fire_reset:
+            return obs
+        obs, _, done, _ = self.step(1)
+        if done:
+            self.reset_no_fire()
+        obs, _, done, _ = self.step(2)
+        if done:
+            self.reset_no_fire()
+        return obs
+
+    def reset_no_fire(self):
         obs = torch.zeros(84, 84, device=self.device)
         if self.life_termination:
             self.life_termination = False  # Reset flag
@@ -45,7 +60,8 @@ class CuleEnv(gym.Env):
             # Reset internals
             self._reset_buffer()
             # Perform up to 30 random no-ops before starting
-            obs = self.env.reset(initial_steps=1, verbose=1)
+            noops = np.random.randint(self.noop_max + 1)
+            obs = self.env.reset(initial_steps=noops, verbose=1)
             self.env.lives[0] = 5  # Assaf: reset doesn't handle this?
             obs = obs[0, :, :, 0].to(self.device)
 
@@ -60,6 +76,9 @@ class CuleEnv(gym.Env):
     def step(self, action):
         # Repeat action 4 times, max pool over last 2 frames
         obs, reward, done, info = self.env.step(torch.tensor([action]))
+        info["orig_reward"] = reward[0].item()
+        if self.clip_reward:
+            reward = torch.sign(reward)
         if self.lives is None:
             self.lives = self.env.lives.item()
         obs = obs[0, :, :, 0].to(self.device) # / 255

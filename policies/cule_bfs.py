@@ -21,6 +21,7 @@ class CuleBFS():
             if k in self.env_kwargs['env_name']:
                 self.crossover_level = v
                 break
+        self.clip_reward = step_env.clip_reward
         self.gamma = gamma
         self.max_depth = tree_depth
         cart = AtariRom(self.env_kwargs['env_name'])
@@ -143,6 +144,9 @@ class CuleBFS():
         torch.cuda.synchronize()
 
         rewards = relevant_env.rewards[:num_envs].to(gpu_env.device)
+        # TODO: Fix for depths > 1
+        if self.clip_reward:
+            rewards = torch.sign(rewards)
         cpu_env.set_size(1)
         gpu_env.set_size(1)
         return state_clone, rewards

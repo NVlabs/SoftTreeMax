@@ -7,11 +7,10 @@ import os
 import argparse
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
-from stable_baselines3.common.utils import get_device
+from stable_baselines3.common.utils import get_device, get_linear_fn
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from environments.cule_env import CuleEnv
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.utils import get_linear_fn
 
 # from wandb.integration.sb3 import WandbCallback
 
@@ -26,7 +25,7 @@ parser.add_argument('--learning_rate', type=float, default=2.5e-05)
 parser.add_argument('--target_update_interval', type=int, default=10000)
 parser.add_argument('--exploration_final_eps', type=float, default=0.1)
 parser.add_argument('--seed', type=int, default=4)
-parser.add_argument('--env_name', type=str, default='SpaceInvadersNoFrameskip-v4')
+parser.add_argument('--env_name', type=str, default='KrullNoFrameskip-v4')
 parser.add_argument('--use_cule', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--evaluate_freq', type=int, default=100)
@@ -38,6 +37,8 @@ parser.add_argument('--eval_saved_agent', type=str2bool, nargs='?', const=True, 
 parser.add_argument('--saved_model', type=str, default=None)
 parser.add_argument('--n_frame_stack', type=int, default=4)
 parser.add_argument('--n_eval_ep', type=int, default=10)
+parser.add_argument('--clip_reward', type=str2bool, nargs='?', const=True, default=True)
+parser.add_argument('--noop_max', type=int, default=30)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
@@ -47,8 +48,12 @@ print('tree_depth: {}'.format(config.tree_depth))
 env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=True,
                   frameskip=4)
 
+fire_reset = config.env_name not in ['AsterixNoFrameskip-v4', 'CrazyClimberNoFrameskip-v4',
+                                     'FreewayNoFrameskip-v4', 'MsPacmanNoFrameskip-v4',
+                                     'SkiingNoFrameskip-v4', 'TutankhamNoFrameskip-v4']
 if config.use_cule:
-    env = CuleEnv(env_kwargs=env_kwargs, device=get_device(), n_frame_stack=config.n_frame_stack)
+    env = CuleEnv(env_kwargs=env_kwargs, device=get_device(), n_frame_stack=config.n_frame_stack,
+                  clip_reward=config.clip_reward, noop_max=config.noop_max, fire_reset=fire_reset)
     # env = make_vec_env(CuleEnv, n_envs=8, env_kwargs={'env_kwargs': env_kwargs, 'device': get_device(),
     #                                             'n_frame_stack':config.n_frame_stack})
 else:
