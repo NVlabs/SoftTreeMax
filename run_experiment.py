@@ -1,3 +1,5 @@
+import sys
+sys.path.append('../stable-baselines3/')
 from callbacks import WandbTrainingCallback
 from policies.actor_critic_ts import ActorCriticCnnTSPolicy
 from utils import str2bool
