@@ -27,7 +27,7 @@ parser.add_argument('--learning_rate', type=float, default=2.5e-05)
 parser.add_argument('--target_update_interval', type=int, default=10000)
 parser.add_argument('--exploration_final_eps', type=float, default=0.1)
 parser.add_argument('--seed', type=int, default=4)
-parser.add_argument('--env_name', type=str, default='KrullNoFrameskip-v4')
+parser.add_argument('--env_name', type=str, default='AlienNoFrameskip-v4')
 parser.add_argument('--use_cule', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--evaluate_freq', type=int, default=100)
@@ -41,13 +41,15 @@ parser.add_argument('--n_frame_stack', type=int, default=4)
 parser.add_argument('--n_eval_ep', type=int, default=10)
 parser.add_argument('--clip_reward', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--noop_max', type=int, default=30)
+parser.add_argument('--learn_alpha', type=str2bool, nargs='?', const=True, default=True)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
 normalize_images = config.normalize_images
 print('tree_depth: {}'.format(config.tree_depth))
 
-env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=True,
+# episodic_life is false since we take care of that ourselves
+env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=False,
                   frameskip=4)
 
 fire_reset = config.env_name not in ['AsterixNoFrameskip-v4', 'CrazyClimberNoFrameskip-v4',
@@ -74,13 +76,15 @@ print("Environment: ", config.env_name, "Num actions: ", env.action_space.n)
 
 ppo_def_lr = get_linear_fn(2.5e-4, 0, 1)
 ppo_def_clip = get_linear_fn(0.1, 0, 1)
-PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3, 'gamma': 0.99, 'n_steps': 128, 'batch_size': 32,
+# * (1+config.tree_depth)
+PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3 , 'gamma': 0.99, 'n_steps': 128, 'batch_size': 32,
               'ent_coef': 0.01, 'vf_coef': 1.0, 'gae_lambda': 0.95, 'clip_range': ppo_def_clip}
 if config.tree_depth == 0:
     model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)
 else:
+    hash_buffer_size = 2048
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
-                     'buffer_size': PPO_params['n_steps']}
+                     'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha}
     model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs, **PPO_params)
 # learning_rate=config.learning_rate,
 
