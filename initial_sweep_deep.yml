@@ -26,4 +26,18 @@ parameters:
 #               'PongNoFrameskip-v4',
 #               'PrivateEyeNoFrameskip-v4',
                'RoadRunnerNoFrameskip-v4',
+               'RobotankNoFrameskip-v4',
+               'SeaquestNoFrameskip-v4',
+               'SkiingNoFrameskip-v4',
+               'SolarisNoFrameskip-v4',
+               'SpaceInvadersNoFrameskip-v4',
+               'StarGunnerNoFrameskip-v4',
+               'TennisNoFrameskip-v4',
+               'TimePilotNoFrameskip-v4',
+               'TutankhamNoFrameskip-v4',
+               'VentureNoFrameskip-v4',
+               'VideoPinballNoFrameskip-v4',
+               'WizardOfWorNoFrameskip-v4',
+               'YarsRevengeNoFrameskip-v4',
+               'ZaxxonNoFrameskip-v4'
       ]
