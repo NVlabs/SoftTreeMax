@@ -9,7 +9,7 @@ from policies.cule_bfs import CuleBFS
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 **kwargs):
+                 learn_alpha, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
         self.cule_bfs = CuleBFS(step_env, tree_depth, gamma)
@@ -19,9 +19,11 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         self.obs2timestep_dict = {}
         # self.obs_dict = {}
         self.buffer_size = buffer_size
-        self.alpha = 1
-        # self.alpha = th.nn.Parameter(th.tensor(1.0, device=th.device("cuda", 0)))
-        # self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+        self.learn_alpha = learn_alpha
+        self.alpha = th.tensor(1.0 * (action_space.n ** tree_depth) , device=self.device)
+        if self.learn_alpha:
+            self.alpha = th.nn.Parameter(self.alpha)
+            self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """

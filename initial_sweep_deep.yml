@@ -9,22 +9,6 @@ parameters:
   seed:
     values: [1]
   env_name:
-#    values: ['cule_AlienNoFrameskip-v4',
-#      'cule_AmidarNoFrameskip-v4',
-#      'cule_AssaultNoFrameskip-v4',
-#      'cule_AsterixNoFrameskip-v4',
-#      'cule_AsteroidsNoFrameskip-v4',
-#      'cule_AtlantisNoFrameskip-v4',
-#      'cule_BankHeistNoFrameskip-v4',
-#      'cule_BattleZoneNoFrameskip-v4',
-#      'cule_BerzerkNoFrameskip-v4',
-#      'cule_BowlingNoFrameskip-v4',
-#      'cule_BoxingNoFrameskip-v4',
-#      'cule_BreakoutNoFrameskip-v4',
-#      'cule_CentipedeNoFrameskip-v4',
-#      'cule_ChopperCommandNoFrameskip-v4',
-#      'cule_CrazyClimberNoFrameskip-v4',
-#      'cule_DoubleDunkNoFrameskip-v4']
       values: [
 #        'EnduroNoFrameskip-v4',
 #               'FishingDerbyNoFrameskip-v4',
