@@ -32,7 +32,9 @@ class WandbTrainingCallback(BaseCallback):
             done = int(self.locals["dones"][0])
         # if False:
         if done:
-            wandb.log({"train\\alpha": self.locals["self"].policy.alpha.item()}, step=self.model.num_timesteps)
+            # TODO: fix here - depth 0 has no alpha
+            if hasattr(self.locals["self"].policy, "alpha"):
+                wandb.log({"train\\alpha": self.locals["self"].policy.alpha.item()}, step=self.model.num_timesteps)
             wandb.log({"train\episodic_reward": self.total_rewards}, step=self.model.num_timesteps)
             wandb.log({"train\episodic_length": self.episode_length}, step=self.model.num_timesteps)
             wandb.log({"num_steps": self.model.num_timesteps}, step=self.model.num_timesteps)
