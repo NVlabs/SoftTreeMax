@@ -9,7 +9,7 @@ from policies.cule_bfs import CuleBFS
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, **kwargs):
+                 learn_alpha, use_tree_for_v, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
         self.cule_bfs = CuleBFS(step_env, tree_depth, gamma)
@@ -17,6 +17,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         self.obs2leaves_dict = {}
         self.timestep2obs_dict = {}
         self.obs2timestep_dict = {}
+        self.use_tree_for_v = use_tree_for_v
         # self.obs_dict = {}
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
@@ -46,10 +47,15 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         # TODO: Check if more efficient extracting features from obs and leaves_observation simultaneously
         # Preprocess the observation if needed
         cat_features = self.extract_features(th.cat((obs, leaves_observations)))
-        latent_pi = self.mlp_extractor.policy_net(self.mlp_extractor.shared_net(cat_features[1:]))
-        latent_vf = self.mlp_extractor.value_net(self.mlp_extractor.shared_net(cat_features[:1]))
-        values = self.value_net(latent_vf)
+        shared_features = self.mlp_extractor.shared_net(cat_features)
+        latent_pi = self.mlp_extractor.policy_net(shared_features[1:])
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
+        if self.use_tree_for_v:
+            latent_vf_leaves = self.mlp_extractor.value_net(shared_features[1:])
+            values = (val_coef * self.value_net(latent_vf_leaves) + rewards[:, None]).max(0, keepdim=True).values
+        else:
+            latent_vf_root = self.mlp_extractor.value_net(shared_features[:1])
+            values = self.value_net(latent_vf_root)
         mean_actions = val_coef * self.action_net(latent_pi) + rewards.reshape([-1, 1])
         # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
         # # This version builds distribution to have
@@ -113,17 +119,21 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             all_rewards.append(rewards)
             # Preprocess the observation if needed
         all_rewards_th = th.cat(all_rewards).reshape([-1, 1])
-
+        val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
         cat_features = self.extract_features(th.cat(all_leaves_obs))
-        latent_vf = self.mlp_extractor.value_net(self.mlp_extractor.shared_net(cat_features[:batch_size]))
-        latent_pi = self.mlp_extractor.policy_net(self.mlp_extractor.shared_net(cat_features[batch_size:]))
-        values = self.value_net(latent_vf)
+        shared_features = self.mlp_extractor.shared_net(cat_features)
+        latent_pi = self.mlp_extractor.policy_net(shared_features[batch_size:])
+        if self.use_tree_for_v:
+            latent_vf_leaves = self.mlp_extractor.value_net(shared_features[batch_size:])
+            values = (val_coef * self.value_net(latent_vf_leaves) + all_rewards_th).reshape((batch_size, -1)).max(1, keepdim=True).values
+        else:
+            latent_vf_root = self.mlp_extractor.value_net(shared_features[:batch_size])
+            values = self.value_net(latent_vf_root)
         # _, latent_vf = self.mlp_extractor(self.extract_features(obs))
         # values = self.value_net(latent_vf)
         # features = self.extract_features(th.cat(all_leaves_obs))
         # latent_pi, latent_vf = self.mlp_extractor(features)
         # Assaf added
-        val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
         mean_actions = val_coef * self.action_net(latent_pi) + all_rewards_th
         subtree_width = self.action_space.n**self.cule_bfs.max_depth
         # mean_vf = val_coef * self.value_net(latent_vf) + all_rewards_th
