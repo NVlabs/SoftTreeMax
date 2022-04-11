@@ -46,16 +46,8 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         self.timestep2obs_dict[self.time_step] = hash_obs
         # TODO: Check if more efficient extracting features from obs and leaves_observation simultaneously
         # Preprocess the observation if needed
-        cat_features = self.extract_features(th.cat((obs, leaves_observations)))
-        shared_features = self.mlp_extractor.shared_net(cat_features)
-        latent_pi = self.mlp_extractor.policy_net(shared_features[1:])
+        latent_pi, value_root = self.compute_value(root_obs=obs, leaves_obs=leaves_observations)
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
-        if self.use_tree_for_v:
-            latent_vf_leaves = self.mlp_extractor.value_net(shared_features[1:])
-            values = (val_coef * self.value_net(latent_vf_leaves) + rewards[:, None]).max(0, keepdim=True).values
-        else:
-            latent_vf_root = self.mlp_extractor.value_net(shared_features[:1])
-            values = self.value_net(latent_vf_root)
         mean_actions = val_coef * self.action_net(latent_pi) + rewards.reshape([-1, 1])
         # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
         # # This version builds distribution to have
@@ -69,11 +61,6 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         # DEBUG:
         # actions = th.randint(0, self.action_space.n, (1, ), device=actions.device)
         log_prob = distribution.log_prob(actions)
-        # distribution = self.action_dist.proba_distribution(action_logits=mean_actions.reshape(1, -1))
-        # slice_length = self.action_space.n ** self.cule_bfs.max_depth
-        # actions = distribution.get_actions(deterministic=deterministic) // slice_length
-        # same_action_indexes = th.arange(slice_length*actions[0], slice_length*(actions[0]+1), device=actions.device)
-        # log_prob = th.log(th.sum(th.exp(distribution.log_prob(same_action_indexes)), dim=0, keepdim=True))
         # TODO: handle fire
         if self.time_step - self.buffer_size in self.timestep2obs_dict:
             del self.obs2leaves_dict[self.timestep2obs_dict[self.time_step - self.buffer_size]]
@@ -81,7 +68,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             del self.timestep2obs_dict[self.time_step - self.buffer_size]
         self.time_step += 1
         # print("New observations: ", len(self.obs_dict)/self.time_step, len(self.obs_dict), self.time_step)
-        return actions, values, log_prob
+        return actions, value_root, log_prob
 
         # RAND_FIRE_LIST = ['Breakout']
         # fire_env = len([e for e in RAND_FIRE_LIST if e in self.env_name]) > 0
@@ -123,12 +110,8 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         cat_features = self.extract_features(th.cat(all_leaves_obs))
         shared_features = self.mlp_extractor.shared_net(cat_features)
         latent_pi = self.mlp_extractor.policy_net(shared_features[batch_size:])
-        if self.use_tree_for_v:
-            latent_vf_leaves = self.mlp_extractor.value_net(shared_features[batch_size:])
-            values = (val_coef * self.value_net(latent_vf_leaves) + all_rewards_th).reshape((batch_size, -1)).max(1, keepdim=True).values
-        else:
-            latent_vf_root = self.mlp_extractor.value_net(shared_features[:batch_size])
-            values = self.value_net(latent_vf_root)
+        latent_vf_root = self.mlp_extractor.value_net(shared_features[:batch_size])
+        values = self.value_net(latent_vf_root)
         # _, latent_vf = self.mlp_extractor(self.extract_features(obs))
         # values = self.value_net(latent_vf)
         # features = self.extract_features(th.cat(all_leaves_obs))
@@ -151,3 +134,11 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
 
     def hash_obs(self, obs):
         return (obs[:, -2:, :, :].double() + obs[:, -2:, :, :].double().pow(2)).view(obs.shape[0], -1).sum(dim=1).int()
+
+    def compute_value(self, root_obs, leaves_obs):
+        cat_features = self.extract_features(th.cat((root_obs, leaves_obs)))
+        shared_features = self.mlp_extractor.shared_net(cat_features)
+        latent_pi = self.mlp_extractor.policy_net(shared_features[1:])
+        latent_vf_root = self.mlp_extractor.value_net(shared_features[:1])
+        value_root = self.value_net(latent_vf_root)
+        return latent_pi, value_root

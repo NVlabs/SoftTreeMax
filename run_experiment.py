@@ -12,7 +12,6 @@ from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 from stable_baselines3.common.utils import get_device, get_linear_fn
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from environments.cule_env import CuleEnv
-from stable_baselines3.common.env_util import make_vec_env
 
 # from wandb.integration.sb3 import WandbCallback
 
