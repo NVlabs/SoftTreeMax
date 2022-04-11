@@ -12,7 +12,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
                  learn_alpha, use_tree_for_v, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
-        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma)
+        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value)
         self.time_step = 0
         self.obs2leaves_dict = {}
         self.timestep2obs_dict = {}
