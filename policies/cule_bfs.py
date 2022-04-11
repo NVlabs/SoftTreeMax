@@ -154,7 +154,7 @@ class CuleBFS():
     def bfs_with_width(self, state, tree_depth):
         state_clone = state.clone().detach()
 
-        max_width = 10  # self.max_width
+        n_action_subsample = 2  # self.max_width
 
         cpu_env = self.cpu_env
         gpu_env = self.gpu_env
@@ -194,16 +194,14 @@ class CuleBFS():
                 depth_actions_initial = self.gpu_actions
 
             # Compute the number of environments at the current depth
-            num_envs = self.min_actions_size ** (depth + 1)
-            if max_width != -1:
-                num_envs = min(num_envs, max_width * self.min_actions_size)
+            num_envs = self.min_actions_size * n_action_subsample ** depth
             # depth_env.set_size(num_envs)
             depth_env.expand(num_envs)
 
             if depth != 0:
                 first_action = first_action.repeat(1, cpu_env.action_space.n).view(-1, 1)
+            depth_actions = depth_actions_initial.repeat(n_action_subsample ** depth)
 
-            depth_actions = depth_actions_initial.repeat(max_width)
             # Loop over the number of frameskips
             for frame in range(depth_env.frameskip):
                 # Execute backend call to the C++ step function with environment data
@@ -234,7 +232,7 @@ class CuleBFS():
             torch.cuda.synchronize()
 
             # TODO: make this work with estimate value instead of rewards
-            if max_width != -1 and depth != tree_depth - 1 and num_envs > max_width:
+            if depth < tree_depth - 1:
                 top_indexes = torch.argsort(depth_env.rewards[:num_envs], descending=True)[:max_width]
                 first_action = first_action[top_indexes]
                 state_clone = state_clone[top_indexes, :]
