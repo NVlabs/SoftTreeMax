@@ -15,8 +15,8 @@ from environments.cule_env import CuleEnv
 from stable_baselines3.common.env_util import make_vec_env
 
 # from wandb.integration.sb3 import WandbCallback
-
-# os.environ["WANDB_MODE"] = "dryrun"
+if sys.gettrace() is not None:
+    os.environ["WANDB_MODE"] = "dryrun"
 # os.environ["WANDB_BASE_URL"] = "http://api.wandb.ai"
 
 parser = argparse.ArgumentParser()

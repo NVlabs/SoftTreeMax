@@ -123,6 +123,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         mean_actions = val_coef * self.action_net(latent_pi) + all_rewards_th
         for i in range(batch_size):
             if all_first_actions[0] is None:
+                subtree_width = self.action_space.n ** self.cule_bfs.max_depth
                 mean_actions_per_subtree = self.alpha * mean_actions[subtree_width*i:subtree_width*(i+1)].reshape([self.action_space.n, -1])
                 mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
             else:
