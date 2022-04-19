@@ -9,15 +9,14 @@ from policies.cule_bfs import CuleBFS
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, use_tree_for_v, **kwargs):
+                 learn_alpha, max_width, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
-        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value)
+        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value, max_width)
         self.time_step = 0
         self.obs2leaves_dict = {}
         self.timestep2obs_dict = {}
         self.obs2timestep_dict = {}
-        self.use_tree_for_v = use_tree_for_v
         # self.obs_dict = {}
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
@@ -37,25 +36,28 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         hash_obs = self.hash_obs(obs)[0].item()
         # self.obs_dict[hash_obs] = 1
         if hash_obs in self.obs2leaves_dict:
-            leaves_observations, rewards = self.obs2leaves_dict.get(hash_obs)
+            leaves_observations, rewards, first_action = self.obs2leaves_dict.get(hash_obs)
             del self.timestep2obs_dict[self.obs2timestep_dict[hash_obs]]
         else:
-            leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
-            self.obs2leaves_dict[hash_obs] = leaves_observations, rewards
+            leaves_observations, rewards, first_action = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
+            self.obs2leaves_dict[hash_obs] = leaves_observations, rewards, first_action
         self.obs2timestep_dict[hash_obs] = self.time_step
         self.timestep2obs_dict[self.time_step] = hash_obs
         # TODO: Check if more efficient extracting features from obs and leaves_observation simultaneously
         # Preprocess the observation if needed
-        latent_pi, value_root = self.compute_value(root_obs=obs, leaves_obs=leaves_observations)
+        latent_pi, value_root = self.compute_value(leaves_obs=leaves_observations, root_obs=obs)
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
         mean_actions = val_coef * self.action_net(latent_pi) + rewards.reshape([-1, 1])
         # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
         # # This version builds distribution to have
-        mean_actions_per_subtree = self.alpha * mean_actions.reshape([self.action_space.n, -1])
-        # TODO: Verify this numerically
-        # mean_actions_logits = th.reshape(th.log(th.sum(th.exp(mean_actions_per_subtree), dim=1, keepdim=True)), (1, -1))
-        mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
-        # mean_actions_logits = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+        if first_action is None:
+            mean_actions_per_subtree = self.alpha * mean_actions.reshape([self.action_space.n, -1])
+            mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+        else:
+            mean_actions_logits = torch.zeros((1, self.action_space.n), device=mean_actions.device)
+            for i in range(self.action_space.n):
+                mean_actions_by_first_action = self.alpha * mean_actions[torch.nonzero(first_action[:] == i)[:, 0], :]
+                mean_actions_logits[0, i] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
         # DEBUG:
@@ -94,16 +96,18 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         hash_obses = self.hash_obs(obs)
         all_leaves_obs = [obs]
         all_rewards = []
+        all_first_actions = []
         for i in range(batch_size):
             hash_obs = hash_obses[i].item()
             if hash_obs in self.obs2leaves_dict:
-                leaves_observations, rewards = self.obs2leaves_dict.get(hash_obs)
+                leaves_observations, rewards, first_action = self.obs2leaves_dict.get(hash_obs)
             else:
                 print("This shouldn't happen! observation not in our dictionary")
-                leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
+                leaves_observations, rewards, first_action = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
                 self.obs2leaves_dict[hash_obs] = leaves_observations, rewards
             all_leaves_obs.append(leaves_observations)
             all_rewards.append(rewards)
+            all_first_actions.append(first_action)
             # Preprocess the observation if needed
         all_rewards_th = th.cat(all_rewards).reshape([-1, 1])
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
@@ -112,19 +116,16 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         latent_pi = self.mlp_extractor.policy_net(shared_features[batch_size:])
         latent_vf_root = self.mlp_extractor.value_net(shared_features[:batch_size])
         values = self.value_net(latent_vf_root)
-        # _, latent_vf = self.mlp_extractor(self.extract_features(obs))
-        # values = self.value_net(latent_vf)
-        # features = self.extract_features(th.cat(all_leaves_obs))
-        # latent_pi, latent_vf = self.mlp_extractor(features)
         # Assaf added
         mean_actions = val_coef * self.action_net(latent_pi) + all_rewards_th
-        subtree_width = self.action_space.n**self.cule_bfs.max_depth
-        # mean_vf = val_coef * self.value_net(latent_vf) + all_rewards_th
-        # values = mean_vf.reshape((-1, batch_size, 1)).max(dim=0)[0]
-        # mean_actions.reshape((-1, batch_size, self.action_space.n)).transpose(0, 1).reshape([batch_size, self.action_space.n, -1])
         for i in range(batch_size):
-            mean_actions_per_subtree = self.alpha * mean_actions[subtree_width*i:subtree_width*(i+1)].reshape([self.action_space.n, -1])
-            mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+            if all_first_actions[0] is None:
+                mean_actions_per_subtree = self.alpha * mean_actions[subtree_width*i:subtree_width*(i+1)].reshape([self.action_space.n, -1])
+                mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+            else:
+                for j in range(self.action_space.n):
+                    mean_actions_by_first_action = self.alpha * mean_actions[torch.nonzero(all_first_actions[i][:] == j)[:, 0], :]
+                    mean_actions_logits[i, j] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
             # mean_actions_logits[i, :] = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         log_prob = distribution.log_prob(actions)
@@ -135,7 +136,10 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
     def hash_obs(self, obs):
         return (obs[:, -2:, :, :].double() + obs[:, -2:, :, :].double().pow(2)).view(obs.shape[0], -1).sum(dim=1).int()
 
-    def compute_value(self, root_obs, leaves_obs):
+    def compute_value(self, leaves_obs, root_obs=None):
+        if root_obs is None:
+            shared_features = self.mlp_extractor.shared_net(self.extract_features(leaves_obs))
+            return self.action_net(self.mlp_extractor.policy_net(shared_features)), None
         cat_features = self.extract_features(th.cat((root_obs, leaves_obs)))
         shared_features = self.mlp_extractor.shared_net(cat_features)
         latent_pi = self.mlp_extractor.policy_net(shared_features[1:])

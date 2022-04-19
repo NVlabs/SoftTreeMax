@@ -7,7 +7,7 @@ CROSSOVER_DICT = {'MsPacman': 1, 'Breakout': 2, 'Assault': 2, 'Krull': 2, 'Pong'
 
 
 class CuleBFS():
-    def __init__(self, step_env, tree_depth, gamma=0.99, compute_val_func=None):
+    def __init__(self, step_env, tree_depth, gamma=0.99, compute_val_func=None, max_width=-1):
         if type(step_env) == DummyVecEnv:
             self.multiple_envs = True
             self.env_kwargs = step_env.envs[0].env_kwargs
@@ -28,7 +28,7 @@ class CuleBFS():
         cart = AtariRom(self.env_kwargs['env_name'])
         self.min_actions = cart.minimal_actions()
         self.min_actions_size = len(self.min_actions)
-        num_envs = self.min_actions_size ** tree_depth
+        num_envs = self.min_actions_size ** tree_depth if max_width == -1 else max_width * self.min_actions_size
 
         self.gpu_env = self.get_env(num_envs, device=torch.device("cuda", 0))
         if self.crossover_level == -1:
@@ -48,17 +48,24 @@ class CuleBFS():
         self.envs = [self.gpu_env]
         self.num_envs = 1
         self.trunc_count = 0
-
+        self.max_width = max_width
 
     def get_env(self, num_envs, device):
         env = AtariEnv(num_envs=num_envs, device=device, action_set=self.min_actions, **self.env_kwargs)
         super(AtariEnv, env).reset(0)
         initial_steps_rand = 1
         env.reset(initial_steps=initial_steps_rand, verbose=True)
+        env.set_size(1)
         # env.train()
         return env
 
     def bfs(self, state, tree_depth):
+        if self.max_width == -1:
+            state_clone, rewards = self.bfs_orig(state, tree_depth)
+            return state_clone, rewards, None
+        return self.bfs_with_width(state, tree_depth)
+
+    def bfs_orig(self, state, tree_depth):
         state_clone = state.clone().detach()
 
         cpu_env = self.cpu_env
@@ -155,7 +162,7 @@ class CuleBFS():
     def bfs_with_width(self, state, tree_depth):
         state_clone = state.clone().detach()
 
-        max_width = 10  # self.max_width
+        max_width = self.max_width
 
         cpu_env = self.cpu_env
         gpu_env = self.gpu_env
@@ -199,7 +206,7 @@ class CuleBFS():
             if max_width != -1:
                 num_envs = min(num_envs, max_width * self.min_actions_size)
             # depth_env.set_size(num_envs)
-            depth_env.expand(num_envs)
+            self.new_expand(depth_env, num_envs)
 
             if depth != 0:
                 first_action = first_action.repeat(1, cpu_env.action_space.n).view(-1, 1)
@@ -236,7 +243,9 @@ class CuleBFS():
 
             # TODO: make this work with estimate value instead of rewards
             if max_width != -1 and depth != tree_depth - 1 and num_envs > max_width:
-                top_indexes = torch.argsort(depth_env.rewards[:num_envs], descending=True)[:max_width]
+                leaves_vals = self.compute_val_func(state_clone)[0].max(dim=1).values
+                pi_logit = depth_env.rewards[:num_envs] + self.gamma**(depth + 1) * leaves_vals.to(depth_env.device)
+                top_indexes = torch.argsort(pi_logit, descending=True)[:max_width]
                 first_action = first_action[top_indexes]
                 state_clone = state_clone[top_indexes, :]
                 depth_env.rewards[:max_width] = depth_env.rewards[top_indexes]
@@ -246,6 +255,8 @@ class CuleBFS():
                 depth_env.states[:max_width, :] = depth_env.states[top_indexes, :]
                 depth_env.ram[:max_width] = depth_env.ram[top_indexes]
                 depth_env.frame_states[:max_width] = depth_env.frame_states[top_indexes]
+                depth_env.lives[:max_width] = depth_env.lives[top_indexes]
+                depth_env.set_size(max_width)
 
         # Make sure all actions in the backend are completed
         if depth_env.is_cuda:
@@ -283,3 +294,23 @@ class CuleBFS():
         torch.cuda.synchronize()
         target_env.update_frame_states()
 
+    def new_expand(self, env, num_envs):
+        orig_size = env.size()
+        states = env.states[:env.size()].clone()
+        ram = env.ram[:env.size()].clone()
+        rewards = env.rewards[:env.size()].clone()
+        done = env.done[:env.size()].clone()
+        frame_states = env.frame_states[:env.size()].clone()
+        lives = env.lives[:env.size()].clone()
+
+        env.set_size(num_envs)
+
+        #env_indices = torch.arange(num_envs, device=env.device) // int(num_envs / self.min_actions_size)
+        env_indices = torch.arange(num_envs, device=env.device) // int(num_envs / orig_size)
+
+        env.states[:env.size()] = states[env_indices]
+        env.ram[:env.size()] = ram[env_indices]
+        env.rewards[:env.size()] = rewards[env_indices]
+        env.done[:env.size()] = done[env_indices]
+        env.frame_states[:env.size()] = frame_states[env_indices]
+        env.lives[:env.size()] = lives[env_indices]
