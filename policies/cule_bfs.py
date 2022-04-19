@@ -7,7 +7,7 @@ CROSSOVER_DICT = {'MsPacman': 1, 'Breakout': 2, 'Assault': 2, 'Krull': 2, 'Pong'
 
 
 class CuleBFS():
-    def __init__(self, step_env, tree_depth, gamma=0.99):
+    def __init__(self, step_env, tree_depth, gamma=0.99, compute_val_func=None):
         if type(step_env) == DummyVecEnv:
             self.multiple_envs = True
             self.env_kwargs = step_env.envs[0].env_kwargs
@@ -16,6 +16,7 @@ class CuleBFS():
             self.multiple_envs = False
             self.env_kwargs = step_env.env_kwargs
             self.n_frame_stack = step_env.n_frame_stack
+        self.compute_val_func = compute_val_func
         self.crossover_level = 10
         for k, v in CROSSOVER_DICT.items():
             if k in self.env_kwargs['env_name']:
