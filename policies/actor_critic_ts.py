@@ -12,7 +12,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
                  learn_alpha, use_tree_for_v, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
-        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value)
+        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_action_value, is_subsample_tree=True)
         self.time_step = 0
         self.obs2leaves_dict = {}
         self.timestep2obs_dict = {}
@@ -40,15 +40,17 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             leaves_observations, rewards = self.obs2leaves_dict.get(hash_obs)
             del self.timestep2obs_dict[self.obs2timestep_dict[hash_obs]]
         else:
-            leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
+            # leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
+            leaves_observations, rewards, first_action = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
             self.obs2leaves_dict[hash_obs] = leaves_observations, rewards
         self.obs2timestep_dict[hash_obs] = self.time_step
         self.timestep2obs_dict[self.time_step] = hash_obs
         # TODO: Check if more efficient extracting features from obs and leaves_observation simultaneously
         # Preprocess the observation if needed
-        latent_pi, value_root = self.compute_value(root_obs=obs, leaves_obs=leaves_observations)
+        val_root = self.compute_value(obs)
+        action_val_leaves = self.compute_action_value(leaves_observations)
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
-        mean_actions = val_coef * self.action_net(latent_pi) + rewards.reshape([-1, 1])
+        mean_actions = val_coef * action_val_leaves + rewards.reshape([-1, 1])
         # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
         # # This version builds distribution to have
         mean_actions_per_subtree = self.alpha * mean_actions.reshape([self.action_space.n, -1])
@@ -68,7 +70,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             del self.timestep2obs_dict[self.time_step - self.buffer_size]
         self.time_step += 1
         # print("New observations: ", len(self.obs_dict)/self.time_step, len(self.obs_dict), self.time_step)
-        return actions, value_root, log_prob
+        return actions, val_root, log_prob
 
         # RAND_FIRE_LIST = ['Breakout']
         # fire_env = len([e for e in RAND_FIRE_LIST if e in self.env_name]) > 0
@@ -100,6 +102,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
                 leaves_observations, rewards = self.obs2leaves_dict.get(hash_obs)
             else:
                 print("This shouldn't happen! observation not in our dictionary")
+                # leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
                 leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
                 self.obs2leaves_dict[hash_obs] = leaves_observations, rewards
             all_leaves_obs.append(leaves_observations)
@@ -135,10 +138,16 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
     def hash_obs(self, obs):
         return (obs[:, -2:, :, :].double() + obs[:, -2:, :, :].double().pow(2)).view(obs.shape[0], -1).sum(dim=1).int()
 
-    def compute_value(self, root_obs, leaves_obs):
-        cat_features = self.extract_features(th.cat((root_obs, leaves_obs)))
-        shared_features = self.mlp_extractor.shared_net(cat_features)
-        latent_pi = self.mlp_extractor.policy_net(shared_features[1:])
-        latent_vf_root = self.mlp_extractor.value_net(shared_features[:1])
-        value_root = self.value_net(latent_vf_root)
-        return latent_pi, value_root
+    def compute_value(self, input):
+        features = self.extract_features(input)
+        shared_features = self.mlp_extractor.shared_net(features)
+        latent_val = self.mlp_extractor.value_net(shared_features)
+        value = self.value_net(latent_val)
+        return value
+
+    def compute_action_value(self, input):
+        features = self.extract_features(input)
+        shared_features = self.mlp_extractor.shared_net(features)
+        latent_action_val = self.mlp_extractor.policy_net(shared_features)
+        action_val = self.action_net(latent_action_val)
+        return action_val
