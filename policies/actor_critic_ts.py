@@ -20,7 +20,10 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         # self.obs_dict = {}
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
-        self.alpha = th.tensor(1.0 * (action_space.n ** tree_depth) , device=self.device)
+        if max_width == -1:
+            self.alpha = th.tensor(1.0 * action_space.n ** tree_depth, device=self.device)
+        else:
+            self.alpha = th.tensor(1.0 * action_space.n * max_width, device=self.device)
         if self.learn_alpha:
             self.alpha = th.nn.Parameter(self.alpha)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
