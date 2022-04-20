@@ -28,7 +28,8 @@ class CuleBFS():
         cart = AtariRom(self.env_kwargs['env_name'])
         self.min_actions = cart.minimal_actions()
         self.min_actions_size = len(self.min_actions)
-        num_envs = self.min_actions_size ** tree_depth if max_width == -1 else max_width * self.min_actions_size
+        num_envs = self.min_actions_size ** tree_depth if max_width == -1 \
+            else min(max_width*self.min_actions_size, self.min_actions_size ** tree_depth)
 
         self.gpu_env = self.get_env(num_envs, device=torch.device("cuda", 0))
         if self.crossover_level == -1:
@@ -60,10 +61,16 @@ class CuleBFS():
         return env
 
     def bfs(self, state, tree_depth):
+        # state_clone, rewards = self.bfs_orig(state, tree_depth)
+        # state_clone_w, rewards_w, first_action = self.bfs_with_width(state, tree_depth)
         if self.max_width == -1:
             state_clone, rewards = self.bfs_orig(state, tree_depth)
             return state_clone, rewards, None
         return self.bfs_with_width(state, tree_depth)
+
+    # state_clone, rewards = self.bfs_orig(state, tree_depth)
+    # state_clone_w, rewards_w, first_action = self.bfs_with_width(state, tree_depth)
+    # print((state_clone - state_clone_w).abs().sum(), (rewards - rewards_w).abs().sum())
 
     def bfs_orig(self, state, tree_depth):
         state_clone = state.clone().detach()
@@ -202,9 +209,8 @@ class CuleBFS():
                 depth_actions_initial = self.gpu_actions
 
             # Compute the number of environments at the current depth
-            num_envs = self.min_actions_size ** (depth + 1)
-            if max_width != -1:
-                num_envs = min(num_envs, max_width * self.min_actions_size)
+            num_envs = self.min_actions_size ** (depth + 1) if max_width == -1 else \
+                min(self.min_actions_size ** (depth + 1), max_width * self.min_actions_size)
             # depth_env.set_size(num_envs)
             self.new_expand(depth_env, num_envs)
 

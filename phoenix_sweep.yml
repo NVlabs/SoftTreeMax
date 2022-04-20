@@ -11,4 +11,4 @@ parameters:
   env_name:
     values: ['PhoenixNoFrameskip-v4']
   max_width:
-    values: [-1, 20]
+    values: [20]

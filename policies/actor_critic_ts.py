@@ -23,7 +23,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         if max_width == -1:
             self.alpha = th.tensor(1.0 * action_space.n ** tree_depth, device=self.device)
         else:
-            self.alpha = th.tensor(1.0 * action_space.n * max_width, device=self.device)
+            self.alpha = th.tensor(1.0 * min(action_space.n ** tree_depth, max_width), device=self.device)
         if self.learn_alpha:
             self.alpha = th.nn.Parameter(self.alpha)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
@@ -53,14 +53,39 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         mean_actions = val_coef * self.action_net(latent_pi) + rewards.reshape([-1, 1])
         # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
         # # This version builds distribution to have
-        if first_action is None:
+        if self.cule_bfs.max_width == -1:
+            # import time
+            # t1 = time.time()
+            # for t in range(1000):
             mean_actions_per_subtree = self.alpha * mean_actions.reshape([self.action_space.n, -1])
             mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+            # print("Time of 1000xoriginal: ", time.time() - t1)
         else:
-            mean_actions_logits = torch.zeros((1, self.action_space.n), device=mean_actions.device)
-            for i in range(self.action_space.n):
-                mean_actions_by_first_action = self.alpha * mean_actions[torch.nonzero(first_action[:] == i)[:, 0], :]
-                mean_actions_logits[0, i] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
+            squash_q = th.sum(th.exp(self.alpha * mean_actions), dim=1, keepdim=True)
+            mean_actions_logits = torch.zeros(self.action_space.n, 1, device=squash_q.device)
+            mean_actions_logits.scatter_add_(0, first_action.to(squash_q.device), squash_q)
+            mean_actions_logits = torch.log(mean_actions_logits.transpose(1, 0))
+            # t2 = time.time()
+            # for t in range(1000):
+            #     mean_actions_logits = torch.zeros((1, self.action_space.n), device=mean_actions.device)
+            #     for i in range(self.action_space.n):
+            #         mean_actions_by_first_action = self.alpha * mean_actions[torch.nonzero(first_action[:] == i)[:, 0], :]
+            #         mean_actions_logits[0, i] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
+            # print("Time of 1000x2: ", time.time() - t2)
+            # t3 = time.time()
+            # for t in range(1000):
+            #     squash_q = th.sum(th.exp(self.alpha * mean_actions), dim=1, keepdim=True)
+            #     M = torch.zeros(self.action_space.n, first_action.shape[0], device=mean_actions.device)
+            #     M[first_action, torch.arange(first_action.shape[0]).reshape(-1, 1)] = 1
+            #     mean_actions_logits = torch.log(torch.mm(M, squash_q)).transpose(1, 0)
+            # print("Time of 1000x3: ", time.time() - t3)
+            # t4 = time.time()
+            # for t in range(1000):
+            # squash_q = th.sum(th.exp(self.alpha * mean_actions), dim=1, keepdim=True)
+            # mean_actions_logits = torch.log(torch.zeros(self.action_space.n, 1, device=squash_q.device).scatter_add(0, first_action.to(squash_q.device), squash_q)).transpose(1, 0)
+            # print("Time of 1000x4: ", time.time() - t4)
+
+
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
         # DEBUG:
@@ -121,16 +146,27 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         values = self.value_net(latent_vf_root)
         # Assaf added
         mean_actions = val_coef * self.action_net(latent_pi) + all_rewards_th
+        subtree_width = self.action_space.n ** self.cule_bfs.max_depth
+        if self.cule_bfs.max_width != -1:
+            subtree_width = min(subtree_width, self.cule_bfs.max_width*self.action_space.n)
+        # TODO: Optimize here
         for i in range(batch_size):
-            if all_first_actions[0] is None:
+            mean_actions_batch = mean_actions[subtree_width * i:subtree_width * (i + 1)]
+            if self.cule_bfs.max_width == -1:
                 subtree_width = self.action_space.n ** self.cule_bfs.max_depth
-                mean_actions_per_subtree = self.alpha * mean_actions[subtree_width*i:subtree_width*(i+1)].reshape([self.action_space.n, -1])
+                mean_actions_per_subtree = self.alpha * mean_actions_batch.reshape([self.action_space.n, -1])
                 mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
             else:
-                for j in range(self.action_space.n):
-                    mean_actions_by_first_action = self.alpha * mean_actions[torch.nonzero(all_first_actions[i][:] == j)[:, 0], :]
-                    mean_actions_logits[i, j] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
-            # mean_actions_logits[i, :] = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+                squash_q = th.sum(th.exp(self.alpha * mean_actions_batch), dim=1, keepdim=True)
+                mean_actions_logits_batch = torch.zeros(self.action_space.n, 1, device=squash_q.device)
+                mean_actions_logits_batch.scatter_add_(0, all_first_actions[i].to(squash_q.device), squash_q)
+                mean_actions_logits_batch = torch.log(mean_actions_logits_batch.transpose(1, 0))
+                mean_actions_logits[i, :] = mean_actions_logits_batch
+
+            # for j in range(self.action_space.n):
+            #     mean_actions_by_first_action = self.alpha * mean_actions_batch[torch.nonzero(all_first_actions[i][:] == j)[:, 0], :]
+            #     mean_actions_logits[i, j] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
+        # mean_actions_logits[i, :] = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         log_prob = distribution.log_prob(actions)
         # old_values, old_log_probs, old_dist = super(ActorCriticCnnPolicy, self).evaluate_actions(obs, actions)
