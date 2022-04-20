@@ -1,6 +1,7 @@
 import numpy as np
 import wandb
 import os
+import sys
 
 from stable_baselines3.common.callbacks import BaseCallback
 
@@ -32,7 +33,7 @@ class WandbTrainingCallback(BaseCallback):
         else:
             done = int(self.locals["dones"][0])
         # if False:
-        if done and os.environ["WANDB_MODE"] != "dryrun":
+        if done and sys.gettrace() is None:
             # TODO: fix here - depth 0 has no alpha
             if hasattr(self.locals["self"].policy, "alpha"):
                 wandb.log({"train\\alpha": self.locals["self"].policy.alpha.item()}, step=self.model.num_timesteps)
