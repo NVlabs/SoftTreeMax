@@ -251,8 +251,11 @@ class CuleBFS():
             if max_width != -1 and depth != tree_depth - 1 and num_envs > max_width:
                 leaves_vals = self.compute_val_func(state_clone)[0].max(dim=1).values
                 pi_logit = depth_env.rewards[:num_envs] + self.gamma**(depth + 1) * leaves_vals.to(depth_env.device)
-                top_indexes = torch.multinomial(torch.softmax(pi_logit, 0), max_width)
-                # top_indexes = torch.argsort(pi_logit, descending=True)[:max_width]
+                try:
+                    top_indexes = torch.multinomial(torch.softmax(pi_logit, 0), max_width)
+                except:
+                    print("Bug in pi_logit", pi_logit)
+                    top_indexes = torch.argsort(pi_logit, descending=True)[:max_width]
                 first_action = first_action[top_indexes]
                 state_clone = state_clone[top_indexes, :]
                 depth_env.rewards[:max_width] = depth_env.rewards[top_indexes]

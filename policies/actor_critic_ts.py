@@ -20,10 +20,11 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         # self.obs_dict = {}
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
-        if max_width == -1:
-            self.alpha = th.tensor(1.0 * action_space.n ** tree_depth, device=self.device)
-        else:
-            self.alpha = th.tensor(1.0 * min(action_space.n ** tree_depth, max_width), device=self.device)
+        self.alpha = th.tensor(1.0, device=self.device)
+        # if max_width == -1:
+        #     self.alpha = th.tensor(1.0 * action_space.n ** tree_depth, device=self.device)
+        # else:
+        #     self.alpha = th.tensor(1.0 * min(action_space.n ** tree_depth, max_width), device=self.device)
         if self.learn_alpha:
             self.alpha = th.nn.Parameter(self.alpha)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
@@ -61,7 +62,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
             # print("Time of 1000xoriginal: ", time.time() - t1)
         else:
-            squash_q = th.sum(th.exp(self.alpha * mean_actions), dim=1, keepdim=True)
+            squash_q = th.sum(th.clip(th.exp(self.alpha * mean_actions), 0, 1000), dim=1, keepdim=True)
             mean_actions_logits = torch.zeros(self.action_space.n, 1, device=squash_q.device)
             mean_actions_logits.scatter_add_(0, first_action.to(squash_q.device), squash_q)
             mean_actions_logits = torch.log(mean_actions_logits.transpose(1, 0))
@@ -84,7 +85,6 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             # squash_q = th.sum(th.exp(self.alpha * mean_actions), dim=1, keepdim=True)
             # mean_actions_logits = torch.log(torch.zeros(self.action_space.n, 1, device=squash_q.device).scatter_add(0, first_action.to(squash_q.device), squash_q)).transpose(1, 0)
             # print("Time of 1000x4: ", time.time() - t4)
-
 
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
