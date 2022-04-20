@@ -15,8 +15,9 @@ from environments.cule_env import CuleEnv
 
 # from wandb.integration.sb3 import WandbCallback
 
-# os.environ["WANDB_MODE"] = "dryrun"
-# os.environ["WANDB_BASE_URL"] = "http://api.wandb.ai"
+if sys.gettrace() is not None:
+    os.environ["WANDB_MODE"] = "dryrun"
+    os.environ["WANDB_BASE_URL"] = "https://api.wandb.ai"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--total_timesteps', type=int, default=40000000)
@@ -41,7 +42,7 @@ parser.add_argument('--n_eval_ep', type=int, default=10)
 parser.add_argument('--clip_reward', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--noop_max', type=int, default=30)
 parser.add_argument('--learn_alpha', type=str2bool, nargs='?', const=True, default=True)
-parser.add_argument('--use_tree_for_v', type=str2bool, nargs='?', const=True, default=True)
+parser.add_argument('--n_action_subsample', type=int, default=2)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
@@ -85,7 +86,7 @@ else:
     hash_buffer_size = 2048
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
                      'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha,
-                     'use_tree_for_v': config.use_tree_for_v}
+                     'n_action_subsample': config.n_action_subsample}
     model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs, **PPO_params)
 # learning_rate=config.learning_rate,
 

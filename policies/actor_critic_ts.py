@@ -9,15 +9,15 @@ from policies.cule_bfs import CuleBFS
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, use_tree_for_v, **kwargs):
+                 learn_alpha, n_action_subsample, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
-        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_action_value, is_subsample_tree=True)
+        self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_action_value, n_action_subsample=n_action_subsample,
+                                is_subsample_tree=True)
         self.time_step = 0
         self.obs2leaves_dict = {}
         self.timestep2obs_dict = {}
         self.obs2timestep_dict = {}
-        self.use_tree_for_v = use_tree_for_v
         # self.obs_dict = {}
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
@@ -41,7 +41,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             del self.timestep2obs_dict[self.obs2timestep_dict[hash_obs]]
         else:
             # leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
-            leaves_observations, rewards, first_action = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
+            leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
             self.obs2leaves_dict[hash_obs] = leaves_observations, rewards
         self.obs2timestep_dict[hash_obs] = self.time_step
         self.timestep2obs_dict[self.time_step] = hash_obs

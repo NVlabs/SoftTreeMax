@@ -60,6 +60,7 @@ class CuleBFS():
         initial_steps_rand = 1
         env.reset(initial_steps=initial_steps_rand, verbose=True)
         # env.train()
+        env.set_size(1)
         return env
 
     def bfs(self, state, tree_depth):
@@ -205,7 +206,8 @@ class CuleBFS():
             # Compute the number of environments at the current depth
             num_envs = self.min_actions_size * self.n_action_subsample ** depth
             # depth_env.set_size(num_envs)
-            depth_env.expand(num_envs)
+            if depth == 0:
+                depth_env.expand(num_envs)
 
             if depth != 0:
                 first_action = first_action.repeat(1, cpu_env.action_space.n).view(-1, 1)
@@ -245,20 +247,31 @@ class CuleBFS():
                                  self.compute_action_val_func(state_clone).max(dim=1).values.to(self.cpu_env.device)
                 n_chunks = self.n_action_subsample ** depth
                 action_val_vec_rs =action_val_vec.reshape((n_chunks, self.min_actions_size))
-                top_indices = torch.multinomial(torch.softmax(action_val_vec_rs, 0), self.n_action_subsample)
+                top_indices = torch.multinomial(torch.softmax(action_val_vec_rs, dim=1), self.n_action_subsample)
                 top_indices = top_indices.reshape((n_chunks * self.n_action_subsample, ))
-                first_action = first_action[top_indices]
+                de_states_cloned = depth_env.states[:depth_env.size()].clone()
+                de_obs1_cloned = depth_env.observations1[:depth_env.size()].clone()
+                de_obs2_cloned = depth_env.observations2[:depth_env.size()].clone()
+                de_ram_cloned = depth_env.ram[:depth_env.size()].clone()
+                de_rewards_cloned = depth_env.rewards[:depth_env.size()].clone()
+                de_done_cloned = depth_env.done[:depth_env.size()].clone()
+                de_frame_states_cloned = depth_env.frame_states[:depth_env.size()].clone()
+                de_lives_cloned = depth_env.lives[:depth_env.size()].clone()
+                num_envs = self.min_actions_size * self.n_action_subsample ** (depth + 1)
+                depth_env.set_size(num_envs)
+                # todo: replace with vec operation torch.arange(depth_env.size()) // len(self.min_actions_size)
                 for i, idx in enumerate(top_indices):
+                    idx_shifted = idx + (i // self.n_action_subsample) * self.min_actions_size
                     idx_range = slice(i * self.min_actions_size, (i + 1) * self.min_actions_size)
-                    state_clone[idx_range] = state_clone[idx, :]
-                    depth_env.rewards[idx_range] = depth_env.rewards[idx]
-                    depth_env.observations1[idx_range] = depth_env.observations1[idx]
-                    depth_env.observations2[idx_range] = depth_env.observations2[idx]
-                    depth_env.done[idx_range] = depth_env.done[idx]
-                    depth_env.states[idx_range, :] = depth_env.states[idx, :]
-                    depth_env.ram[idx_range] = depth_env.ram[idx]
-                    depth_env.frame_states[idx_range] = depth_env.frame_states[idx]
-                    depth_env.lives[idx_range] = depth_env.lives[idx]
+                    state_clone[idx_range] = state_clone[idx_shifted]
+                    depth_env.rewards[idx_range] = de_rewards_cloned[idx_shifted]
+                    depth_env.observations1[idx_range] = de_obs1_cloned[idx_shifted]
+                    depth_env.observations2[idx_range] = de_obs2_cloned[idx_shifted]
+                    depth_env.done[idx_range] = de_done_cloned[idx_shifted]
+                    depth_env.states[idx_range] = de_states_cloned[idx_shifted]
+                    depth_env.ram[idx_range] = de_ram_cloned[idx_shifted]
+                    depth_env.frame_states[idx_range] = de_frame_states_cloned[idx_shifted]
+                    depth_env.lives[idx_range] = de_lives_cloned[idx_shifted]
 
         # Make sure all actions in the backend are completed
         if depth_env.is_cuda:
@@ -277,7 +290,7 @@ class CuleBFS():
             rewards = torch.sign(rewards)
         cpu_env.set_size(1)
         gpu_env.set_size(1)
-        return state_clone, rewards, first_action
+        return state_clone, rewards
 
     def replicate_state(self, state, depth=None):
         if len(state.shape) == 3:
