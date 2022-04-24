@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--total_timesteps', type=int, default=40000000)
 parser.add_argument('--train_freq', type=int, default=50000)
 parser.add_argument('--exploration_initial_eps', type=int, default=1)
-parser.add_argument('--learning_rate', type=float, default=2.5e-05)
+parser.add_argument('--learning_rate', type=float, default=2.5e-04)
 parser.add_argument('--target_update_interval', type=int, default=10000)
 parser.add_argument('--exploration_final_eps', type=float, default=0.1)
 parser.add_argument('--seed', type=int, default=4)
@@ -75,7 +75,7 @@ else:
 
 print("Environment: ", config.env_name, "Num actions: ", env.action_space.n)
 
-ppo_def_lr = get_linear_fn(2.5e-4, 0, 1)
+ppo_def_lr = get_linear_fn(config.learning_rate, 0, 1)
 ppo_def_clip = get_linear_fn(0.1, 0, 1)
 # * (1+config.tree_depth)
 PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3 , 'gamma': 0.99, 'n_steps': 128, 'batch_size': 32,
@@ -83,7 +83,7 @@ PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3 , 'gamma': 0.99, 'n_ste
 if config.tree_depth == 0:
     model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)
 else:
-    hash_buffer_size = 2048
+    hash_buffer_size = 128  # minimum value - PPO n_steps
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
                      'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha,
                      'max_width': config.max_width}
