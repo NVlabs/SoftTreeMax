@@ -252,7 +252,7 @@ class CuleBFS():
                 leaves_vals = self.compute_val_func(state_clone)[0].max(dim=1).values
                 pi_logit = depth_env.rewards[:num_envs] + self.gamma**(depth + 1) * leaves_vals.to(depth_env.device)
                 try:
-                    top_indexes = torch.multinomial(torch.softmax(pi_logit, 0), max_width)
+                    top_indexes = torch.multinomial(torch.softmax(torch.clip(pi_logit, -1e6, 1e6), 0), max_width)
                 except:
                     print("Bug in pi_logit", pi_logit)
                     top_indexes = torch.argsort(pi_logit, descending=True)[:max_width]
