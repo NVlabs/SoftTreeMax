@@ -43,6 +43,7 @@ parser.add_argument('--clip_reward', type=str2bool, nargs='?', const=True, defau
 parser.add_argument('--noop_max', type=int, default=30)
 parser.add_argument('--learn_alpha', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--n_action_subsample', type=int, default=2)
+parser.add_argument('--is_subsample_tree', type=str2bool, nargs='?', const=True, default=True)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
@@ -86,7 +87,7 @@ else:
     hash_buffer_size = 2048
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
                      'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha,
-                     'n_action_subsample': config.n_action_subsample}
+                     'n_action_subsample': config.n_action_subsample, 'is_subsample_tree': config.is_subsample_tree}
     model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs, **PPO_params)
 # learning_rate=config.learning_rate,
 

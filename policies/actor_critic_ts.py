@@ -9,11 +9,11 @@ from policies.cule_bfs import CuleBFS
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, n_action_subsample, **kwargs):
+                 learn_alpha, n_action_subsample, is_subsample_tree, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
         self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_action_value, n_action_subsample=n_action_subsample,
-                                is_subsample_tree=True)
+                                is_subsample_tree=is_subsample_tree)
         self.time_step = 0
         self.obs2leaves_dict = {}
         self.timestep2obs_dict = {}
@@ -21,7 +21,9 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         # self.obs_dict = {}
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
-        self.alpha = th.tensor(1.0 * (action_space.n ** tree_depth) , device=self.device)
+        self.alpha = th.tensor(1.0, device=self.device)
+        self.n_action_subsample = n_action_subsample
+        self.is_subsample_tree = is_subsample_tree
         if self.learn_alpha:
             self.alpha = th.nn.Parameter(self.alpha)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
@@ -37,12 +39,11 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         hash_obs = self.hash_obs(obs)[0].item()
         # self.obs_dict[hash_obs] = 1
         if hash_obs in self.obs2leaves_dict:
-            leaves_observations, rewards = self.obs2leaves_dict.get(hash_obs)
+            leaves_observations, rewards, first_action = self.obs2leaves_dict.get(hash_obs)
             del self.timestep2obs_dict[self.obs2timestep_dict[hash_obs]]
         else:
-            # leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
-            leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
-            self.obs2leaves_dict[hash_obs] = leaves_observations, rewards
+            leaves_observations, rewards, first_action = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
+            self.obs2leaves_dict[hash_obs] = leaves_observations, rewards, first_action
         self.obs2timestep_dict[hash_obs] = self.time_step
         self.timestep2obs_dict[self.time_step] = hash_obs
         # TODO: Check if more efficient extracting features from obs and leaves_observation simultaneously
@@ -51,13 +52,18 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         action_val_leaves = self.compute_action_value(leaves_observations)
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
         mean_actions = val_coef * action_val_leaves + rewards.reshape([-1, 1])
-        # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
-        # # This version builds distribution to have
-        mean_actions_per_subtree = self.alpha * mean_actions.reshape([self.action_space.n, -1])
-        # TODO: Verify this numerically
-        # mean_actions_logits = th.reshape(th.log(th.sum(th.exp(mean_actions_per_subtree), dim=1, keepdim=True)), (1, -1))
-        mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
-        # mean_actions_logits = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+
+        # mean_actions_per_subtree = self.alpha * mean_actions.reshape([self.action_space.n, -1])
+        # mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+        if self.is_subsample_tree:
+            squash_q = th.sum(th.clip(th.exp(self.alpha * mean_actions), 0, 1000), dim=1, keepdim=True)
+            mean_actions_logits = torch.zeros(self.action_space.n, 1, device=squash_q.device)
+            sa_locs = first_action.repeat_interleave(int(squash_q.shape[0] / len(first_action))).unsqueeze(1).to(squash_q.device)
+            mean_actions_logits.scatter_add_(0, sa_locs, squash_q)
+            mean_actions_logits = torch.log(mean_actions_logits.transpose(1, 0))
+        else:
+            mean_actions_per_subtree = self.alpha * mean_actions.reshape([self.action_space.n, -1])
+            mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
         # DEBUG:
@@ -96,17 +102,18 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         hash_obses = self.hash_obs(obs)
         all_leaves_obs = [obs]
         all_rewards = []
+        all_first_actions = []
         for i in range(batch_size):
             hash_obs = hash_obses[i].item()
             if hash_obs in self.obs2leaves_dict:
-                leaves_observations, rewards = self.obs2leaves_dict.get(hash_obs)
+                leaves_observations, rewards, first_action = self.obs2leaves_dict.get(hash_obs)
             else:
                 print("This shouldn't happen! observation not in our dictionary")
-                # leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
-                leaves_observations, rewards = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
-                self.obs2leaves_dict[hash_obs] = leaves_observations, rewards
+                leaves_observations, rewards, first_action = self.cule_bfs.bfs(obs, self.cule_bfs.max_depth)
+                self.obs2leaves_dict[hash_obs] = leaves_observations, rewards, first_action
             all_leaves_obs.append(leaves_observations)
             all_rewards.append(rewards)
+            all_first_actions.append(first_action)
             # Preprocess the observation if needed
         all_rewards_th = th.cat(all_rewards).reshape([-1, 1])
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
@@ -121,13 +128,24 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         # latent_pi, latent_vf = self.mlp_extractor(features)
         # Assaf added
         mean_actions = val_coef * self.action_net(latent_pi) + all_rewards_th
-        subtree_width = self.action_space.n**self.cule_bfs.max_depth
+        subtree_width = self.n_action_subsample ** (self.cule_bfs.max_depth - 1) * self.action_space.n
         # mean_vf = val_coef * self.value_net(latent_vf) + all_rewards_th
         # values = mean_vf.reshape((-1, batch_size, 1)).max(dim=0)[0]
         # mean_actions.reshape((-1, batch_size, self.action_space.n)).transpose(0, 1).reshape([batch_size, self.action_space.n, -1])
         for i in range(batch_size):
-            mean_actions_per_subtree = self.alpha * mean_actions[subtree_width*i:subtree_width*(i+1)].reshape([self.action_space.n, -1])
-            mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+            mean_actions_batch = mean_actions[subtree_width * i:subtree_width * (i + 1)]
+            if not self.is_subsample_tree:
+                subtree_width = self.action_space.n ** self.cule_bfs.max_depth
+                mean_actions_per_subtree = self.alpha * mean_actions_batch.reshape([self.action_space.n, -1])
+                mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+            else:
+                squash_q = th.sum(th.clip(th.exp(self.alpha * mean_actions_batch), 0, 1000), dim=1, keepdim=True)
+                mean_actions_logits_batch = torch.zeros(self.action_space.n, 1, device=squash_q.device)
+                sa_locs = all_first_actions[i].repeat_interleave(int(squash_q.shape[0] / len(all_first_actions[i]))).unsqueeze(1).to(
+                    squash_q.device)
+                mean_actions_logits_batch.scatter_add_(0, sa_locs, squash_q)
+                mean_actions_logits_batch = torch.log(mean_actions_logits_batch.transpose(1, 0))
+                mean_actions_logits[i, :] = mean_actions_logits_batch
             # mean_actions_logits[i, :] = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         log_prob = distribution.log_prob(actions)

@@ -161,7 +161,7 @@ class CuleBFS():
             rewards = torch.sign(rewards)
         cpu_env.set_size(1)
         gpu_env.set_size(1)
-        return state_clone, rewards
+        return state_clone, rewards, None
 
     def _bfs_with_width(self, state, tree_depth):
         state_clone = state.clone().detach()
@@ -170,7 +170,7 @@ class CuleBFS():
         gpu_env = self.gpu_env
         step_env = self.step_env
 
-        first_action = torch.arange(0, cpu_env.action_space.n, device=cpu_env.device).unsqueeze(1)
+        first_action = None
 
         # Set device environment root state before calling step function
         cpu_env.states[0] = step_env.states[0]
@@ -209,8 +209,6 @@ class CuleBFS():
             if depth == 0:
                 depth_env.expand(num_envs)
 
-            if depth != 0:
-                first_action = first_action.repeat(1, cpu_env.action_space.n).view(-1, 1)
             depth_actions = depth_actions_initial.repeat(self.n_action_subsample ** depth)
 
             # Loop over the number of frameskips
@@ -249,6 +247,7 @@ class CuleBFS():
                 action_val_vec_rs =action_val_vec.reshape((n_chunks, self.min_actions_size))
                 top_indices = torch.multinomial(torch.softmax(action_val_vec_rs, dim=1), self.n_action_subsample)
                 top_indices = top_indices.reshape((n_chunks * self.n_action_subsample, ))
+
                 de_states_cloned = depth_env.states[:depth_env.size()].clone()
                 de_obs1_cloned = depth_env.observations1[:depth_env.size()].clone()
                 de_obs2_cloned = depth_env.observations2[:depth_env.size()].clone()
@@ -259,6 +258,9 @@ class CuleBFS():
                 de_lives_cloned = depth_env.lives[:depth_env.size()].clone()
                 num_envs = self.min_actions_size * self.n_action_subsample ** (depth + 1)
                 depth_env.set_size(num_envs)
+
+                if depth == 0:
+                    first_action = top_indices
                 # todo: replace with vec operation torch.arange(depth_env.size()) // len(self.min_actions_size)
                 for i, idx in enumerate(top_indices):
                     idx_shifted = idx + (i // self.n_action_subsample) * self.min_actions_size
@@ -290,7 +292,7 @@ class CuleBFS():
             rewards = torch.sign(rewards)
         cpu_env.set_size(1)
         gpu_env.set_size(1)
-        return state_clone, rewards
+        return state_clone, rewards, first_action
 
     def replicate_state(self, state, depth=None):
         if len(state.shape) == 3:
