@@ -78,7 +78,7 @@ print("Environment: ", config.env_name, "Num actions: ", env.action_space.n)
 ppo_def_lr = get_linear_fn(config.learning_rate, 0, 1)
 ppo_def_clip = get_linear_fn(0.1, 0, 1)
 # * (1+config.tree_depth)
-PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3 , 'gamma': 0.99, 'n_steps': 128, 'batch_size': 32,
+PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3, 'gamma': 0.99, 'n_steps': 128, 'batch_size': 32,
               'ent_coef': 0.01, 'vf_coef': 1.0, 'gae_lambda': 0.95, 'clip_range': ppo_def_clip}
 if config.tree_depth == 0:
     model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)

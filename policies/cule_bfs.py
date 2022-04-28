@@ -216,7 +216,6 @@ class CuleBFS():
 
             if depth != 0:
                 first_action = first_action.repeat(1, cpu_env.action_space.n).view(-1, 1)
-
             depth_actions = depth_actions_initial.repeat(max_width)
             # Loop over the number of frameskips
             for frame in range(depth_env.frameskip):
