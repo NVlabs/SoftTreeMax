@@ -9,8 +9,8 @@ parameters:
   seed:
     values: [1, 2]
   env_name:
-    values: ['PhoenixNoFrameskip-v4']
+    values: ['NameThisGameNoFrameskip-v4']
   max_width:
     values: [-1]
   learning_rate:
-    values: [ 2.5e-04, 2.5e-03, 2.5e-02 ]
+    values: [ 2.5e-04, 5e-04, 1e-03 ]
