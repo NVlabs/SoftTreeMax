@@ -84,7 +84,7 @@ PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3 , 'gamma': 0.99, 'n_ste
 if config.tree_depth == 0:
     model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)
 else:
-    hash_buffer_size = 2048
+    hash_buffer_size = 128
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
                      'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha,
                      'n_action_subsample': config.n_action_subsample, 'is_subsample_tree': config.is_subsample_tree}

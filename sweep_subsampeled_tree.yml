@@ -1,0 +1,25 @@
+program: run_experiment.py
+method: grid
+metric:
+  goal: maximize
+  name: episodic_reward
+parameters:
+  is_subsample_tree:
+    values: [True]
+  tree_depth:
+    values: [5, 6, 7, 8, 9]
+#tree_depth:
+#  values: [1, 2, 3, 4]
+#  tree_depth:
+#    values: [0, 1, 2, 3]
+  seed:
+    values: [1]
+  env_name:
+      values: [
+               'FrostbiteNoFrameskip-v4',
+               'KrullNoFrameskip-v4',
+               'MsPacmanNoFrameskip-v4',
+               'NameThisGameNoFrameskip-v4',
+               'PhoenixNoFrameskip-v4',
+               'VideoPinballNoFrameskip-v4'
+      ]
