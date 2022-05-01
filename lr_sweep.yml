@@ -7,9 +7,9 @@ parameters:
   tree_depth:
     values: [0, 1, 2]
   seed:
-    values: [1, 2]
+    values: [1]
   env_name:
-    values: ['NameThisGameNoFrameskip-v4']
+    values: ['BreakoutNoFrameskip-v4', 'SpaceInvadersNoFrameskip-v4']
   max_width:
     values: [-1]
   learning_rate:
