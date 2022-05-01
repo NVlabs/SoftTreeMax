@@ -241,7 +241,7 @@ class CuleBFS():
             torch.cuda.synchronize()
 
             if depth < tree_depth - 1:
-                action_val_vec = depth_env.rewards[:num_envs] + self.gamma ** (depth + 1) * \
+                action_val_vec = depth_env.rewards[:num_envs].to(self.cpu_env.device) + self.gamma ** (depth + 1) * \
                                  self.compute_action_val_func(state_clone).max(dim=1).values.to(self.cpu_env.device)
                 n_chunks = self.n_action_subsample ** depth
                 action_val_vec_rs =action_val_vec.reshape((n_chunks, self.min_actions_size))
