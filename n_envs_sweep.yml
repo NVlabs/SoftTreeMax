@@ -8,3 +8,5 @@ parameters:
     values: ['NameThisGameNoFrameskip-v4', 'PhoenixNoFrameskip-v4']
   n_envs:
     values: [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+  use_cule:
+    values: [True]
