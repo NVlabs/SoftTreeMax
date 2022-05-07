@@ -18,6 +18,7 @@ from environments.cule_env import CuleEnv
 from stable_baselines3.common.env_util import make_atari_env, make_vec_env
 from stable_baselines3.common.atari_wrappers import AtariWrapper
 from stable_baselines3.common.vec_env import DummyVecEnv
+from environments.cule_env_multiple import CuleEnvMultiple
 
 # from wandb.integration.sb3 import WandbCallback
 if sys.gettrace() is not None:
@@ -52,14 +53,25 @@ parser.add_argument('--n_envs', type=int, default=1)
 wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
 
+if config.use_cule:
+    # episodic_life is false since we take care of that ourselves
+    env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=True,
+                      frameskip=4)
 
-def make_env(rank):
-    def _init():
-        return ClipRewardEnv2(AtariWrapper(gym.make(config.env_name), clip_reward=False))
-    return _init
+    fire_reset = config.env_name not in ['AsterixNoFrameskip-v4', 'CrazyClimberNoFrameskip-v4',
+                                         'FreewayNoFrameskip-v4', 'MsPacmanNoFrameskip-v4',
+                                         'SkiingNoFrameskip-v4', 'TutankhamNoFrameskip-v4']
+    env = CuleEnvMultiple(env_kwargs=env_kwargs, device=get_device(), n_frame_stack=config.n_frame_stack,
+                          clip_reward=config.clip_reward, noop_max=config.noop_max, fire_reset=fire_reset,
+                          n_envs=config.n_envs)
+else:
+    def make_env(rank):
+        def _init():
+            return ClipRewardEnv2(AtariWrapper(gym.make(config.env_name), clip_reward=False))
+        return _init
 
 
-env = DummyVecEnv([make_env(i) for i in range(config.n_envs)])
+    env = DummyVecEnv([make_env(i) for i in range(config.n_envs)])
 
 print("Environment: ", config.env_name, "Num actions: ", env.action_space.n)
 

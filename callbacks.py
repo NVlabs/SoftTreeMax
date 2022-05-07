@@ -15,9 +15,11 @@ class WandbTrainingCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         # self.total_rewards += np.mean(self.locals["rewards"])
-        info = self.locals["infos"][0]
-        if "orig_reward" in info:
-            self.total_rewards += info["orig_reward"]
+        infos = self.locals["infos"]
+        if "orig_reward" in infos:
+            self.total_rewards += np.mean(infos["orig_reward"])
+        elif type(infos) == list:
+            self.total_rewards += np.mean([info["orig_reward"] for info in infos])
         self.episode_length += 1
 
         # if "ale.lives" in info:
@@ -28,10 +30,12 @@ class WandbTrainingCallback(BaseCallback):
         #             print("Error: Lives went up but did not reach 0 before!")
         #         # assert self.prev_life <= 1, "Error: Lives went up but did not reach 0 before!"
         #     self.prev_life = ale_lives
-        if "done" in info:
-            done = info["done"]
+        if "done" in infos:
+            done = infos["done"]
         else:
             done = int(self.locals["dones"][0])
+        if type(done) == np.ndarray:
+            done = any(done)
         # if False:
         if done and sys.gettrace() is None:
             # TODO: fix here - depth 0 has no alpha
