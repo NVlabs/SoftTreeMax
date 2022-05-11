@@ -17,7 +17,7 @@ class CuleBFS():
             self.env_kwargs = step_env.env_kwargs
             self.n_frame_stack = step_env.n_frame_stack
         self.compute_val_func = compute_val_func
-        self.crossover_level = 10
+        self.crossover_level = 1
         for k, v in CROSSOVER_DICT.items():
             if k in self.env_kwargs['env_name']:
                 self.crossover_level = v

@@ -61,7 +61,7 @@ if config.use_cule:
     fire_reset = config.env_name not in ['AsterixNoFrameskip-v4', 'CrazyClimberNoFrameskip-v4',
                                          'FreewayNoFrameskip-v4', 'MsPacmanNoFrameskip-v4',
                                          'SkiingNoFrameskip-v4', 'TutankhamNoFrameskip-v4']
-    env = CuleEnvMultiple(env_kwargs=env_kwargs, device=get_device(), n_frame_stack=config.n_frame_stack,
+    env = CuleEnvMultiple(env_kwargs=env_kwargs, device='cuda:0', n_frame_stack=config.n_frame_stack,
                           clip_reward=config.clip_reward, noop_max=config.noop_max, fire_reset=fire_reset,
                           n_envs=config.n_envs)
 else:

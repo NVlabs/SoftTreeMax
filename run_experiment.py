@@ -43,6 +43,9 @@ parser.add_argument('--clip_reward', type=str2bool, nargs='?', const=True, defau
 parser.add_argument('--noop_max', type=int, default=30)
 parser.add_argument('--learn_alpha', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--max_width', type=int, default=-1)
+parser.add_argument('--experiment_type', type=str, default="")  # Runtime_optimization, Debug, Paper_main, Ablation
+parser.add_argument('--experiment_description', type=str, default="")
+parser.add_argument('--hash_buffer_size', type=int, default=-1)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
@@ -83,7 +86,7 @@ PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3, 'gamma': 0.99, 'n_step
 if config.tree_depth == 0:
     model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)
 else:
-    hash_buffer_size = 128  # minimum value - PPO n_steps
+    hash_buffer_size = max(config.hash_buffer_size, PPO_params['n_steps'])
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
                      'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha,
                      'max_width': config.max_width}

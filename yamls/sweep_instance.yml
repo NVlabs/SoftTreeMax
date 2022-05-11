@@ -1,0 +1,16 @@
+program: run_experiment.py
+method: grid
+metric:
+  goal: maximize
+  name: episodic_reward
+parameters:
+  experiment_type:
+    values: ["ngc_comparison"]
+  experiment_description:
+    values: [ "dgx1v.32g.1.norm" ]
+  tree_depth:
+    values: [0, 1, 2, 3]
+  hash_buffer_size:
+    values: [512]
+  env_name:
+    values: ['MsPacmanNoFrameskip-v4', 'PhoenixNoFrameskip-v4']
