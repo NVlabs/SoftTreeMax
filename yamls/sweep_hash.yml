@@ -13,4 +13,4 @@ parameters:
   hash_buffer_size:
     values: [128, 256, 512, 1024, 2048]
   env_name:
-    values: ['BreakoutNoFrameskip-v4', 'MsPacmanNoFrameskip-v4', 'PhoenixNoFrameskip-v4']
+    values: ['MsPacmanNoFrameskip-v4', 'PhoenixNoFrameskip-v4']
