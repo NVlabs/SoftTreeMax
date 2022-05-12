@@ -11,6 +11,6 @@ parameters:
   tree_depth:
     values: [0, 1, 2, 3]
   hash_buffer_size:
-    values: [128, 256, 512, 1024, 2048]
+    values: [256, 512, 1024, 2048]
   env_name:
-    values: ['MsPacmanNoFrameskip-v4', 'PhoenixNoFrameskip-v4']
+    values: ['PhoenixNoFrameskip-v4']
