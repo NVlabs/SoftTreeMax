@@ -47,8 +47,9 @@ parser.add_argument('--n_frame_stack', type=int, default=4)
 parser.add_argument('--n_eval_ep', type=int, default=10)
 parser.add_argument('--clip_reward', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--noop_max', type=int, default=30)
-parser.add_argument('--learn_alpha', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--n_envs', type=int, default=1)
+parser.add_argument('--experiment_type', type=str, default="")  # Runtime_optimization, Debug, Paper_main, Ablation
+parser.add_argument('--experiment_description', type=str, default="")
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
