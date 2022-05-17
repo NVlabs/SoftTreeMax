@@ -20,7 +20,7 @@ if sys.gettrace() is not None:
 # os.environ["WANDB_BASE_URL"] = "http://api.wandb.ai"
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--total_timesteps', type=int, default=40000000)
+parser.add_argument('--total_timesteps', type=int, default=200000000)
 parser.add_argument('--train_freq', type=int, default=50000)
 parser.add_argument('--exploration_initial_eps', type=int, default=1)
 parser.add_argument('--learning_rate', type=float, default=2.5e-04)
