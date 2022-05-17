@@ -47,7 +47,11 @@ class WandbTrainingCallback(BaseCallback):
             if hasattr(self.locals["self"].policy, "cule_bfs"):
                 wandb.log({"effective depth": np.mean(self.locals["self"].policy.cule_bfs.effective_depth)}, step=self.model.num_timesteps)
                 self.locals["self"].policy.cule_bfs.effective_depth = []
+                wandb.log({"train\\gradient_norm": np.mean(self.locals["self"].policy.gradient_norm)},
+                          step=self.model.num_timesteps)
+                self.locals["self"].policy.gradient_norm = []
             for key, val in self.locals["self"].logger.name_to_value.items():
                 wandb.log({key: val}, step=self.model.num_timesteps)
             self.total_rewards = 0
             self.episode_length = 0
+
