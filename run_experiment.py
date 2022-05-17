@@ -87,9 +87,9 @@ if config.tree_depth == 0:
     model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)
 else:
     hash_buffer_size = max(config.hash_buffer_size, PPO_params['n_steps'])
+    max_width = int(config.max_width / env.action_space.n) if config.max_width != -1 else -1
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
-                     'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha,
-                     'max_width': config.max_width}
+                     'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha, 'max_width': max_width}
     model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs, **PPO_params)
 # learning_rate=config.learning_rate,
 
