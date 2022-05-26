@@ -13,6 +13,6 @@ parameters:
   seed:
     values: [1, 2, 3]
   env_name:
-    values: ['AmidarNoFrameskip-v4']
+    values: ['AssaultNoFrameskip-v4', 'AsterixNoFrameskip-v4']
   max_width:
     values: [1024]
