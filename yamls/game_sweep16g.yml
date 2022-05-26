@@ -13,9 +13,9 @@ parameters:
   seed:
     values: [1, 2, 3]
   env_name:
-    values: ['AssaultNoFrameskip-v4', 'AsterixNoFrameskip-v4', 'AsteroidsNoFrameskip-v4', 'AtlantisNoFrameskip-v4',
-             'BankHeistNoFrameskip-v4', 'BattleZoneNoFrameskip-v4', 'BerzerkNoFrameskip-v4', 'BowlingNoFrameskip-v4',
-             'BoxingNoFrameskip-v4', 'BreakoutNoFrameskip-v4', 'CentipedeNoFrameskip-v4', 'ChopperCommandNoFrameskip-v4',
-             'CrazyClimberNoFrameskip-v4', 'DoubleDunkNoFrameskip-v4', 'EnduroNoFrameskip-v4', 'FishingDerbyNoFrameskip-v4']
+    values: ['FreewayNoFrameskip-v4', 'FrostbiteNoFrameskip-v4', 'GopherNoFrameskip-v4', 'GravitarNoFrameskip-v4',
+             'HeroNoFrameskip-v4', 'IceHockeyNoFrameskip-v4', 'KangarooNoFrameskip-v4', 'KrullNoFrameskip-v4',
+             'MsPacmanNoFrameskip-v4', 'NameThisGameNoFrameskip-v4', 'PongNoFrameskip-v4', 'PrivateEyeNoFrameskip-v4',
+             'RoadRunnerNoFrameskip-v4', 'RobotankNoFrameskip-v4', 'SeaquestNoFrameskip-v4', 'SkiingNoFrameskip-v4']
   max_width:
     values: [1024]

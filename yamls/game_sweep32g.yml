@@ -13,6 +13,6 @@ parameters:
   seed:
     values: [1, 2, 3]
   env_name:
-    values: ['AssaultNoFrameskip-v4', 'AsterixNoFrameskip-v4', 'AsteroidsNoFrameskip-v4']
+    values: ['AtlantisNoFrameskip-v4', 'BankHeistNoFrameskip-v4', 'BattleZoneNoFrameskip-v4']
   max_width:
     values: [1024]
