@@ -1,0 +1,18 @@
+program: run_experiment.py
+method: grid
+metric:
+  goal: maximize
+  name: episodic_reward
+parameters:
+  experiment_type:
+    values: [ "Paper_main" ]
+  experiment_description:
+    values: [ "Games_depth3_8_run" ]
+  tree_depth:
+    values: [3, 4, 5, 6, 7, 8]
+  seed:
+    values: [1, 2, 3]
+  env_name:
+    values: ['AssaultNoFrameskip-v4', 'AsterixNoFrameskip-v4', 'AsteroidsNoFrameskip-v4']
+  max_width:
+    values: [1024]

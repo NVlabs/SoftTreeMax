@@ -1,0 +1,21 @@
+program: run_experiment.py
+method: grid
+metric:
+  goal: maximize
+  name: episodic_reward
+parameters:
+  experiment_type:
+    values: [ "Paper_main" ]
+  experiment_description:
+    values: [ "Games_1_2depth_run" ]
+  tree_depth:
+    values: [1, 2]
+  seed:
+    values: [1, 2, 3]
+  env_name:
+    values: ['AssaultNoFrameskip-v4', 'AsterixNoFrameskip-v4', 'AsteroidsNoFrameskip-v4', 'AtlantisNoFrameskip-v4',
+             'BankHeistNoFrameskip-v4', 'BattleZoneNoFrameskip-v4', 'BerzerkNoFrameskip-v4', 'BowlingNoFrameskip-v4',
+             'BoxingNoFrameskip-v4', 'BreakoutNoFrameskip-v4', 'CentipedeNoFrameskip-v4', 'ChopperCommandNoFrameskip-v4',
+             'CrazyClimberNoFrameskip-v4', 'DoubleDunkNoFrameskip-v4', 'EnduroNoFrameskip-v4', 'FishingDerbyNoFrameskip-v4']
+  max_width:
+    values: [1024]
