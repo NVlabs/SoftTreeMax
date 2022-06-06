@@ -5,7 +5,7 @@ metric:
   name: episodic_reward
 parameters:
   experiment_type:
-    values: [ "Paper_main" ]
+    values: [ "Debug" ]
   experiment_description:
     values: [ "Games_1_2depth_run" ]
   tree_depth:
