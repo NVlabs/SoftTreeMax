@@ -20,7 +20,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         # self.obs_dict = {}
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
-        self.alpha = th.tensor(1.0, device=self.device)
+        self.alpha = th.tensor(0.5, device=self.device)
         # if max_width == -1:
         #     self.alpha = th.tensor(1.0 * action_space.n ** tree_depth, device=self.device)
         # else:
@@ -59,11 +59,11 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             # import time
             # t1 = time.time()
             # for t in range(1000):
-            mean_actions_per_subtree = self.alpha * mean_actions.reshape([self.action_space.n, -1])
+            mean_actions_per_subtree = mean_actions.reshape([self.action_space.n, -1])
             mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
             # print("Time of 1000xoriginal: ", time.time() - t1)
         else:
-            squash_q = th.sum(th.clip(th.exp(self.alpha * mean_actions), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
+            squash_q = th.sum(th.clip(th.exp(mean_actions), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
             mean_actions_logits = torch.zeros(self.action_space.n, 1, device=squash_q.device)
             mean_actions_logits.scatter_add_(0, first_action.to(squash_q.device), squash_q)
             mean_actions_logits = torch.log(mean_actions_logits.transpose(1, 0) + 1e-10)
@@ -86,7 +86,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             # squash_q = th.sum(th.exp(self.alpha * mean_actions), dim=1, keepdim=True)
             # mean_actions_logits = torch.log(torch.zeros(self.action_space.n, 1, device=squash_q.device).scatter_add(0, first_action.to(squash_q.device), squash_q)).transpose(1, 0)
             # print("Time of 1000x4: ", time.time() - t4)
-
+        mean_actions_logits = self.alpha * mean_actions_logits + (1 - self.alpha) * self.compute_value(leaves_obs=obs)[0]
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
         # DEBUG:
@@ -164,10 +164,10 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             mean_actions_batch = mean_actions[subtree_width * i:subtree_width * (i + 1)]
             if self.cule_bfs.max_width == -1:
                 subtree_width = self.action_space.n ** self.cule_bfs.max_depth
-                mean_actions_per_subtree = self.alpha * mean_actions_batch.reshape([self.action_space.n, -1])
+                mean_actions_per_subtree = mean_actions_batch.reshape([self.action_space.n, -1])
                 mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
             else:
-                squash_q = th.sum(th.clip(th.exp(self.alpha * mean_actions_batch), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
+                squash_q = th.sum(th.clip(th.exp(mean_actions_batch), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
                 mean_actions_logits_batch = torch.zeros(self.action_space.n, 1, device=squash_q.device)
                 mean_actions_logits_batch.scatter_add_(0, all_first_actions[i].to(squash_q.device), squash_q)
                 mean_actions_logits_batch = torch.log(mean_actions_logits_batch.transpose(1, 0) + 1e-10)
@@ -177,6 +177,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             #     mean_actions_by_first_action = self.alpha * mean_actions_batch[torch.nonzero(all_first_actions[i][:] == j)[:, 0], :]
             #     mean_actions_logits[i, j] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
         # mean_actions_logits[i, :] = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+        mean_actions_logits = self.alpha * mean_actions_logits + (1 - self.alpha) * self.compute_value(leaves_obs=obs)[0]
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         log_prob = distribution.log_prob(actions)
         # old_values, old_log_probs, old_dist = super(ActorCriticCnnPolicy, self).evaluate_actions(obs, actions)
