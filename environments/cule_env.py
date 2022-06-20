@@ -77,7 +77,6 @@ class CuleEnv(gym.Env):
         # Repeat action 4 times, max pool over last 2 frames
         obs, reward, done, info = self.env.step(torch.tensor([action]))
         info["orig_reward"] = reward[0].item()
-        info["done"] = done[0].item()
         if self.clip_reward:
             reward = torch.sign(reward)
         if self.lives is None:
@@ -87,6 +86,7 @@ class CuleEnv(gym.Env):
         self.last_frame = obs
         # Detect loss of life as terminal in training mode
         lives = info['ale.lives'][0].item()
+        info["done"] = done[0].item() and lives > self.lives
         if self.training:
             if lives < self.lives and lives > 0:  # Lives > 0 for Q*bert
                 self.life_termination = True  # not done  # Only set flag when not truly done TODO: Why?
