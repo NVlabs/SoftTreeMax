@@ -26,8 +26,9 @@ class WandbTrainingCallback(BaseCallback):
         if "ale.lives" in info:
             ale_lives = int(info["ale.lives"][0]) if type(info["ale.lives"]) == list else int(info["ale.lives"])
             done = ale_lives > self.prev_life
-            if done:
-                assert self.prev_life <= 1, "Error: Lives went up but did not reach 0 before!"
+            if done and self.prev_life > 1:
+                print("Error: Lives went up but did not reach 0 before!")
+            # assert self.prev_life <= 1, "Error: Lives went up but did not reach 0 before!"
             self.prev_life = ale_lives
         else:
             done = int(self.locals["dones"][0])

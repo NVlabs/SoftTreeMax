@@ -125,7 +125,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
                 break
             param_norm = p.grad.data.norm(2)
             total_norm += param_norm.item() ** 2
-            total_norm = total_norm ** (1. / 2)
+        total_norm = total_norm ** (1. / 2)
         self.gradient_norm.append(total_norm)
 
         batch_size = obs.shape[0]
