@@ -52,8 +52,7 @@ config = wandb.config
 normalize_images = config.normalize_images
 print('tree_depth: {}'.format(config.tree_depth))
 
-# episodic_life is false since we take care of that ourselves
-env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=False,
+env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, rescale=True, episodic_life=True,
                   frameskip=4)
 
 fire_reset = config.env_name not in ['AsterixNoFrameskip-v4', 'CrazyClimberNoFrameskip-v4',

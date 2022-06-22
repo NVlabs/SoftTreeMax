@@ -86,7 +86,6 @@ class CuleEnv(gym.Env):
         self.last_frame = obs
         # Detect loss of life as terminal in training mode
         lives = info['ale.lives'][0].item()
-        info["done"] = done[0].item() and lives > self.lives
         if self.training:
             if lives < self.lives and lives > 0:  # Lives > 0 for Q*bert
                 self.life_termination = True  # not done  # Only set flag when not truly done TODO: Why?
