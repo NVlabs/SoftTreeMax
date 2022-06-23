@@ -22,16 +22,14 @@ class WandbTrainingCallback(BaseCallback):
             self.total_rewards += np.mean([info["orig_reward"] for info in infos])
         self.episode_length += 1
 
-        # if "ale.lives" in info:
-        #     ale_lives = int(info["ale.lives"][0]) if type(info["ale.lives"]) == list else int(info["ale.lives"])
-        #     done = (ale_lives > self.prev_life)
-        #     if done:
-        #         if self.prev_life <= 1:
-        #             print("Error: Lives went up but did not reach 0 before!")
-        #         # assert self.prev_life <= 1, "Error: Lives went up but did not reach 0 before!"
-        #     self.prev_life = ale_lives
-        if "done" in infos:
-            done = infos["done"]
+        info = infos[0]
+        if "ale.lives" in info:
+            ale_lives = int(info["ale.lives"][0]) if type(info["ale.lives"]) == list else int(info["ale.lives"])
+            done = ale_lives > self.prev_life
+            if done and self.prev_life > 1:
+                print("Error: Lives went up but did not reach 0 before!")
+            # assert self.prev_life <= 1, "Error: Lives went up but did not reach 0 before!"
+            self.prev_life = ale_lives
         else:
             done = int(self.locals["dones"][0])
         if type(done) == np.ndarray:

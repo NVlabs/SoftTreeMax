@@ -77,7 +77,6 @@ class CuleEnv(gym.Env):
         # Repeat action 4 times, max pool over last 2 frames
         obs, reward, done, info = self.env.step(torch.tensor([action]))
         info["orig_reward"] = reward[0].item()
-        info["done"] = done[0].item()
         if self.clip_reward:
             reward = torch.sign(reward)
         if self.lives is None:
