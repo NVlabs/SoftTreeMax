@@ -4,10 +4,12 @@ import torch
 import torch as th
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from stable_baselines3.common.distributions import Distribution
+
+from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
 from policies.cule_bfs import CuleBFS
 
 
-class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
+class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
                  learn_alpha, max_width, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
@@ -28,8 +30,6 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         if self.learn_alpha:
             self.alpha = th.nn.Parameter(self.alpha)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
-        self.gradient_norm = []
-        self.policy_gradients = {}
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
@@ -120,13 +120,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         :return: estimated value, log likelihood of taking those actions
             and entropy of the action distribution.
         """
-        policy_params = {param_name: param for param_name, param in self.named_parameters() if param_name.startswith('action_net')}
-        for param_name in policy_params:
-            if policy_params[param_name].grad is None:
-                break
-            if not param_name in self.policy_gradients:
-                self.policy_gradients[param_name] = []
-            self.policy_gradients[param_name].append(policy_params[param_name].grad.data.clone().detach())
+        self.add_gradients_history()
         batch_size = obs.shape[0]
         mean_actions_logits = torch.zeros((batch_size, self.action_space.n), device=actions.device)
         # Preprocess the observation if needed
