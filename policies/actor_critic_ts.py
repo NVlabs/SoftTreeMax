@@ -29,6 +29,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
             self.alpha = th.nn.Parameter(self.alpha)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
         self.gradient_norm = []
+        self.policy_gradients = {}
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
@@ -119,15 +120,13 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicy):
         :return: estimated value, log likelihood of taking those actions
             and entropy of the action distribution.
         """
-        total_norm = 0
-        for p in self.parameters():
-            if p.grad is None:
+        policy_params = {param_name: param for param_name, param in self.named_parameters() if param_name.startswith('action_net')}
+        for param_name in policy_params:
+            if policy_params[param_name].grad is None:
                 break
-            param_norm = p.grad.data.norm(2)
-            total_norm += param_norm.item() ** 2
-        total_norm = total_norm ** (1. / 2)
-        self.gradient_norm.append(total_norm)
-
+            if not param_name in self.policy_gradients:
+                self.policy_gradients[param_name] = []
+            self.policy_gradients[param_name].append(policy_params[param_name].grad.data.clone().detach())
         batch_size = obs.shape[0]
         mean_actions_logits = torch.zeros((batch_size, self.action_space.n), device=actions.device)
         # Preprocess the observation if needed
