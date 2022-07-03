@@ -1,4 +1,6 @@
 import numpy as np
+import torch
+
 import wandb
 import os
 import sys
@@ -42,12 +44,15 @@ class WandbTrainingCallback(BaseCallback):
             wandb.log({"train\episodic_reward": self.total_rewards}, step=self.model.num_timesteps)
             wandb.log({"train\episodic_length": self.episode_length}, step=self.model.num_timesteps)
             wandb.log({"num_steps": self.model.num_timesteps}, step=self.model.num_timesteps)
+            grad_var = 0
+            for param_name in self.locals["self"].policy.gradients_history:
+                param_value = self.locals["self"].policy.gradients_history[param_name]
+                grad_var += torch.mean(torch.var(torch.stack(param_value), dim=0)).item()
+                self.locals["self"].policy.gradients_history[param_name] = param_value[param_name][-100:]
+            wandb.log({"train\\policy_weights_grad_var": grad_var}, step=self.model.num_timesteps)
             if hasattr(self.locals["self"].policy, "cule_bfs"):
                 wandb.log({"effective depth": np.mean(self.locals["self"].policy.cule_bfs.effective_depth)}, step=self.model.num_timesteps)
                 self.locals["self"].policy.cule_bfs.effective_depth = []
-                wandb.log({"train\\gradient_norm": np.mean(self.locals["self"].policy.gradient_norm)},
-                          step=self.model.num_timesteps)
-                self.locals["self"].policy.gradient_norm = []
             for key, val in self.locals["self"].logger.name_to_value.items():
                 wandb.log({key: val}, step=self.model.num_timesteps)
             self.total_rewards = 0

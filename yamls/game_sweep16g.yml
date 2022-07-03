@@ -7,7 +7,7 @@ parameters:
   experiment_type:
     values: [ "Debug" ]
   experiment_description:
-    values: [ "Games_1_2depth_run" ]
+    values: [ "Games_1_2depth_run_fix" ]
   tree_depth:
     values: [1, 2]
   seed:

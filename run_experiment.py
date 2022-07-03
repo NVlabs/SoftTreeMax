@@ -1,4 +1,7 @@
 import sys
+
+from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
+
 sys.path.append('../stable-baselines3/')
 from callbacks import WandbTrainingCallback
 from policies.actor_critic_ts import ActorCriticCnnTSPolicy
@@ -83,7 +86,7 @@ ppo_def_clip = get_linear_fn(0.1, 0, 1)
 PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3, 'gamma': 0.99, 'n_steps': 128, 'batch_size': 32,
               'ent_coef': 0.01, 'vf_coef': 1.0, 'gae_lambda': 0.95, 'clip_range': ppo_def_clip}
 if config.tree_depth == 0:
-    model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)
+    model = PPO(policy=ActorCriticCnnPolicyDepth0, env=env, verbose=2, **PPO_params)
 else:
     hash_buffer_size = max(config.hash_buffer_size, PPO_params['n_steps'])
     max_width = int(config.max_width / env.action_space.n) if config.max_width != -1 else -1
