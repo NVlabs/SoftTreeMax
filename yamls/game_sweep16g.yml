@@ -9,13 +9,13 @@ parameters:
   experiment_description:
     values: [ "Games_1_2depth_run_fix" ]
   tree_depth:
-    values: [1, 2]
-  seed:
     values: [1, 2, 3]
+  seed:
+    values: [1, 2]
   env_name:
-    values: ['FreewayNoFrameskip-v4', 'FrostbiteNoFrameskip-v4', 'GopherNoFrameskip-v4', 'GravitarNoFrameskip-v4',
-             'HeroNoFrameskip-v4', 'IceHockeyNoFrameskip-v4', 'KangarooNoFrameskip-v4', 'KrullNoFrameskip-v4',
-             'MsPacmanNoFrameskip-v4', 'NameThisGameNoFrameskip-v4', 'PongNoFrameskip-v4', 'PrivateEyeNoFrameskip-v4',
-             'RoadRunnerNoFrameskip-v4', 'RobotankNoFrameskip-v4', 'SeaquestNoFrameskip-v4', 'SkiingNoFrameskip-v4']
+    values: ['FrostbiteNoFrameskip-v4', 'GopherNoFrameskip-v4', 'GravitarNoFrameskip-v4',
+             'HeroNoFrameskip-v4', 'KangarooNoFrameskip-v4', 'KrullNoFrameskip-v4',
+             'MsPacmanNoFrameskip-v4', 'NameThisGameNoFrameskip-v4', 'PongNoFrameskip-v4',
+             'RoadRunnerNoFrameskip-v4', 'RobotankNoFrameskip-v4', 'SeaquestNoFrameskip-v4']
   max_width:
     values: [1024]
