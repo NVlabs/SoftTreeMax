@@ -11,7 +11,7 @@ from policies.cule_bfs import CuleBFS
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, max_width, **kwargs):
+                 learn_alpha, learn_beta, max_width, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
         self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value, max_width)
@@ -22,13 +22,18 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         # self.obs_dict = {}
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
+        self.learn_beta = learn_beta
         self.alpha = th.tensor(0.5, device=self.device)
+        self.beta = th.tensor(1.0, device=self.device)
         # if max_width == -1:
         #     self.alpha = th.tensor(1.0 * action_space.n ** tree_depth, device=self.device)
         # else:
         #     self.alpha = th.tensor(1.0 * min(action_space.n ** tree_depth, max_width), device=self.device)
         if self.learn_alpha:
             self.alpha = th.nn.Parameter(self.alpha)
+            self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+        if self.learn_beta:
+            self.beta = th.nn.Parameter(self.beta)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
@@ -60,11 +65,11 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             # import time
             # t1 = time.time()
             # for t in range(1000):
-            mean_actions_per_subtree = mean_actions.reshape([self.action_space.n, -1])
+            mean_actions_per_subtree = self.beta * mean_actions.reshape([self.action_space.n, -1])
             mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
             # print("Time of 1000xoriginal: ", time.time() - t1)
         else:
-            squash_q = th.sum(th.clip(th.exp(mean_actions), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
+            squash_q = th.sum(th.clip(th.exp(self.beta * mean_actions), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
             mean_actions_logits = torch.zeros(self.action_space.n, 1, device=squash_q.device)
             mean_actions_logits.scatter_add_(0, first_action.to(squash_q.device), squash_q)
             mean_actions_logits = torch.log(mean_actions_logits.transpose(1, 0) + 1e-10)
@@ -157,10 +162,10 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             mean_actions_batch = mean_actions[subtree_width * i:subtree_width * (i + 1)]
             if self.cule_bfs.max_width == -1:
                 subtree_width = self.action_space.n ** self.cule_bfs.max_depth
-                mean_actions_per_subtree = mean_actions_batch.reshape([self.action_space.n, -1])
+                mean_actions_per_subtree = self.beta * mean_actions_batch.reshape([self.action_space.n, -1])
                 mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
             else:
-                squash_q = th.sum(th.clip(th.exp(mean_actions_batch), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
+                squash_q = th.sum(th.clip(self.beta * th.exp(mean_actions_batch), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
                 mean_actions_logits_batch = torch.zeros(self.action_space.n, 1, device=squash_q.device)
                 mean_actions_logits_batch.scatter_add_(0, all_first_actions[i].to(squash_q.device), squash_q)
                 mean_actions_logits_batch = torch.log(mean_actions_logits_batch.transpose(1, 0) + 1e-10)
