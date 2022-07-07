@@ -3,6 +3,9 @@ import sys
 from clip_reward_env import ClipRewardEnv2
 
 sys.path.append('../stable-baselines3/')
+
+from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
+
 from callbacks import WandbTrainingCallback
 from policies.actor_critic_ts import ActorCriticCnnTSPolicy
 from utils import str2bool
@@ -80,7 +83,7 @@ ppo_def_lr = get_linear_fn(config.learning_rate, 0, 1)
 ppo_def_clip = get_linear_fn(0.1, 0, 1)
 PPO_params = {'learning_rate': ppo_def_lr, 'n_epochs': 3 , 'gamma': 0.99, 'n_steps': 128, 'batch_size': 32,
               'ent_coef': 0.01, 'vf_coef': 1.0, 'gae_lambda': 0.95, 'clip_range': ppo_def_clip}
-model = PPO(policy=ActorCriticCnnPolicy, env=env, verbose=2, **PPO_params)
+model = PPO(policy=ActorCriticCnnPolicyDepth0, env=env, verbose=2, **PPO_params)
 
 # save agent folder and name
 saved_agents_dir = 'saved_agents'

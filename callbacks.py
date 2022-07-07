@@ -21,7 +21,8 @@ class WandbTrainingCallback(BaseCallback):
         if "orig_reward" in infos:
             self.total_rewards += np.mean(infos["orig_reward"])
         elif type(infos) == list:
-            self.total_rewards += np.mean([info["orig_reward"] for info in infos])
+            # self.total_rewards += np.mean([info["orig_reward"] for info in infos])
+            self.total_rewards += np.mean(infos[0]["orig_reward"])
         self.episode_length += 1
 
         info = infos[0]
