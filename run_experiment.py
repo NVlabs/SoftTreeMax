@@ -45,7 +45,7 @@ parser.add_argument('--n_eval_ep', type=int, default=10)
 parser.add_argument('--clip_reward', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--noop_max', type=int, default=30)
 parser.add_argument('--learn_alpha', type=str2bool, nargs='?', const=True, default=True)
-parser.add_argument('--learn_beta', type=str2bool, nargs='?', const=True, default=False)
+parser.add_argument('--learn_beta', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--max_width', type=int, default=-1)
 parser.add_argument('--experiment_type', type=str, default="")  # Runtime_optimization, Debug, Paper_main, Ablation
 parser.add_argument('--experiment_description', type=str, default="")
