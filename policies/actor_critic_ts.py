@@ -23,7 +23,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
         self.learn_beta = learn_beta
-        self.alpha = th.tensor(0.5, device=self.device)
+        self.alpha = th.tensor(0.5 if learn_alpha else 1.0, device=self.device)
         self.beta = th.tensor(1.0, device=self.device)
         # if max_width == -1:
         #     self.alpha = th.tensor(1.0 * action_space.n ** tree_depth, device=self.device)
