@@ -72,7 +72,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             squash_q = th.sum(th.clip(th.exp(self.beta * mean_actions), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
             mean_actions_logits = torch.zeros(self.action_space.n, 1, device=squash_q.device)
             mean_actions_logits.scatter_add_(0, first_action.to(squash_q.device), squash_q)
-            mean_actions_logits = torch.log(mean_actions_logits.transpose(1, 0) + 1e-10)
+            mean_actions_logits = torch.log(mean_actions_logits.transpose(1, 0) + 1e-6)
             # t2 = time.time()
             # for t in range(1000):
             #     mean_actions_logits = torch.zeros((1, self.action_space.n), device=mean_actions.device)
@@ -175,7 +175,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
                 squash_q = th.sum(th.clip(self.beta * th.exp(mean_actions_batch), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
                 mean_actions_logits_batch = torch.zeros(self.action_space.n, 1, device=squash_q.device)
                 mean_actions_logits_batch.scatter_add_(0, all_first_actions[i].to(squash_q.device), squash_q)
-                mean_actions_logits_batch = torch.log(mean_actions_logits_batch.transpose(1, 0) + 1e-10)
+                mean_actions_logits_batch = torch.log(mean_actions_logits_batch.transpose(1, 0) + 1e-6)
                 mean_actions_logits[i, :] = mean_actions_logits_batch
 
             # for j in range(self.action_space.n):
