@@ -44,10 +44,10 @@ parser.add_argument('--n_frame_stack', type=int, default=4)
 parser.add_argument('--n_eval_ep', type=int, default=10)
 parser.add_argument('--clip_reward', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--noop_max', type=int, default=30)
-parser.add_argument('--learn_alpha', type=str2bool, nargs='?', const=True, default=True)
+parser.add_argument('--learn_alpha', type=str2bool, nargs='?', const=True, default=False)
 parser.add_argument('--learn_beta', type=str2bool, nargs='?', const=True, default=True)
 parser.add_argument('--max_width', type=int, default=-1)
-parser.add_argument('--experiment_type', type=str, default="")  # Runtime_optimization, Debug, Paper_main, Ablation
+parser.add_argument('--experiment_type', type=str, default="")  # Runtime_optimization, Debug, Paper_main, Ablation, Hyperparameter_sweep
 parser.add_argument('--experiment_description', type=str, default="")
 parser.add_argument('--hash_buffer_size', type=int, default=-1)
 
@@ -114,8 +114,8 @@ if not config.eval_saved_agent:
     callbacks = [WandbTrainingCallback()]
     model.learn(total_timesteps=config.total_timesteps, log_interval=None, callback=callbacks)
 
-    print("Saving agent in " + saved_agent_file)
-    model.save(saved_agent_file)
+    # print("Saving agent in " + saved_agent_file)
+    # model.save(saved_agent_file)
 else:
     # eval_freq of callback needs to be atleast train_freq to get desirable behavior
     eval_callback = EvalCallback(eval_env=env, n_eval_episodes=250, eval_freq=dqn_train_freq, render=False, verbose=1)
