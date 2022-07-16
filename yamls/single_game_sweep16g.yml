@@ -7,12 +7,12 @@ parameters:
   experiment_type:
     values: [ "Hyperparameter_sweep" ]
   experiment_description:
-    values: [ "Hero_MsPacman_MaxWidth" ]
+    values: [ "Hero_MsPacman_MaxWidth_useV" ]
   tree_depth:
     values: [1, 2, 3, 4, 5, 6, 7, 8]
   seed:
     values: [1, 2]
   env_name:
-    values: ['MsPacmanNoFrameskip-v4', 'HeroNoFrameskip-v4']
+    values: ['MsPacmanNoFrameskip-v4']
   max_width:
     values: [81, 162, 324]

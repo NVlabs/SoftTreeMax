@@ -1,5 +1,8 @@
 import sys
 
+import torch as th
+
+
 sys.path.append('../stable-baselines3/')
 
 from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
@@ -13,6 +16,7 @@ import argparse
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 from stable_baselines3.common.utils import get_device, get_linear_fn
+from stable_baselines3.common.save_util import load_from_zip_file
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from environments.cule_env import CuleEnv
 from stable_baselines3.common.env_util import make_vec_env
@@ -97,6 +101,18 @@ else:
     model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs, **PPO_params)
 # learning_rate=config.learning_rate,
 
+
+#
+# data, params, pytorch_variables = load_from_zip_file("./gxa0fpr9_mspacman_35M.zip", device="auto", custom_objects=None, print_system_info=False)
+# # model.policy.load_state_dict(params['policy'], strict=False)
+# own_state = model.policy.state_dict()
+# for name, param in params['policy'].items():
+#     if not name.startswith('features_extractor'):
+#          continue
+#     if isinstance(param, th.nn.Parameter):
+#         # backwards compatibility for serialized parameters
+#         param = param.data
+#     own_state[name].copy_(param)
 
 
 if not config.eval_saved_agent:

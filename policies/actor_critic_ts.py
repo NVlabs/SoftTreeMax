@@ -36,6 +36,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             self.beta = th.nn.Parameter(self.beta)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
+    # @profile
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Forward pass in all the networks (actor and critic)
@@ -59,6 +60,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         latent_pi, value_root = self.compute_value(leaves_obs=leaves_observations, root_obs=obs)
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
         mean_actions = val_coef * self.action_net(latent_pi) + rewards.reshape([-1, 1])
+        value_root = (val_coef * value_root + rewards.reshape([-1, 1])).max()
         # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
         # # This version builds distribution to have
         if self.cule_bfs.max_width == -1:
@@ -92,7 +94,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             # squash_q = th.sum(th.exp(self.alpha * mean_actions), dim=1, keepdim=True)
             # mean_actions_logits = torch.log(torch.zeros(self.action_space.n, 1, device=squash_q.device).scatter_add(0, first_action.to(squash_q.device), squash_q)).transpose(1, 0)
             # print("Time of 1000x4: ", time.time() - t4)
-        depth0_logits = self.compute_value(leaves_obs=obs)[0]
+        depth0_logits = self.compute_value(leaves_obs=obs)[0] if self.learn_alpha else th.tensor(0)
         if th.any(th.isnan(mean_actions_logits)):
             print("NaN in forward:mean_actions_logits!!!")
             mean_actions_logits[th.isnan(mean_actions_logits)] = 0
@@ -135,9 +137,10 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         self.add_gradients_history()
         batch_size = obs.shape[0]
         mean_actions_logits = torch.zeros((batch_size, self.action_space.n), device=actions.device)
+        ret_values = torch.zeros((batch_size, 1), device=actions.device)
         # Preprocess the observation if needed
         hash_obses = self.hash_obs(obs)
-        all_leaves_obs = [obs]
+        all_leaves_obs = []
         all_rewards = []
         all_first_actions = []
         for i in range(batch_size):
@@ -156,17 +159,19 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
         cat_features = self.extract_features(th.cat(all_leaves_obs))
         shared_features = self.mlp_extractor.shared_net(cat_features)
-        latent_pi = self.mlp_extractor.policy_net(shared_features[batch_size:])
-        latent_vf_root = self.mlp_extractor.value_net(shared_features[:batch_size])
+        latent_pi = self.mlp_extractor.policy_net(shared_features)
+        latent_vf_root = self.mlp_extractor.value_net(shared_features)
         values = self.value_net(latent_vf_root)
         # Assaf added
         mean_actions = val_coef * self.action_net(latent_pi) + all_rewards_th
+        values_subtrees = val_coef * values + all_rewards_th
         subtree_width = self.action_space.n ** self.cule_bfs.max_depth
         if self.cule_bfs.max_width != -1:
             subtree_width = min(subtree_width, self.cule_bfs.max_width*self.action_space.n)
         # TODO: Optimize here
         for i in range(batch_size):
             mean_actions_batch = mean_actions[subtree_width * i:subtree_width * (i + 1)]
+            ret_values[i, 0] = values_subtrees[subtree_width * i:subtree_width * (i + 1)].max()
             if self.cule_bfs.max_width == -1:
                 subtree_width = self.action_space.n ** self.cule_bfs.max_depth
                 mean_actions_per_subtree = self.beta * mean_actions_batch.reshape([self.action_space.n, -1])
@@ -182,7 +187,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             #     mean_actions_by_first_action = self.alpha * mean_actions_batch[torch.nonzero(all_first_actions[i][:] == j)[:, 0], :]
             #     mean_actions_logits[i, j] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
         # mean_actions_logits[i, :] = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
-        depth0_logits = self.compute_value(leaves_obs=obs)[0]
+        depth0_logits = self.compute_value(leaves_obs=obs)[0] if self.learn_alpha else th.tensor(0)
         if th.any(th.isnan(mean_actions_logits)):
             print("NaN in eval_actions:mean_actions_logits!!!")
             mean_actions_logits[th.isnan(mean_actions_logits)] = 0
@@ -194,12 +199,13 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         log_prob = distribution.log_prob(actions)
         # old_values, old_log_probs, old_dist = super(ActorCriticCnnPolicy, self).evaluate_actions(obs, actions)
         # print("Bla", old_values - values, old_log_probs - log_prob, old_dist - distribution.entropy())
-        return values, log_prob, distribution.entropy()
+        return ret_values, log_prob, distribution.entropy()
 
     def hash_obs(self, obs):
-        return (obs[:, -2:, :, :].double() + obs[:, -2:, :, :].double().pow(2)).view(obs.shape[0], -1).sum(dim=1).int()
+        # return (obs[:, -2:, :, :].double() + obs[:, -2:, :, :].double().pow(2)).view(obs.shape[0], -1).sum(dim=1).int()
+        return (obs[:, -2:, :, :].int()).view(obs.shape[0], -1).sum(dim=1)
 
-    def compute_value(self, leaves_obs, root_obs=None):
+    def compute_value2(self, leaves_obs, root_obs=None):
         if root_obs is None:
             shared_features = self.mlp_extractor.shared_net(self.extract_features(leaves_obs))
             return self.action_net(self.mlp_extractor.policy_net(shared_features)), None
@@ -207,5 +213,15 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         shared_features = self.mlp_extractor.shared_net(cat_features)
         latent_pi = self.mlp_extractor.policy_net(shared_features[1:])
         latent_vf_root = self.mlp_extractor.value_net(shared_features[:1])
+        value_root = self.value_net(latent_vf_root)
+        return latent_pi, value_root
+
+    def compute_value(self, leaves_obs, root_obs=None):
+        if root_obs is None:
+            shared_features = self.mlp_extractor.shared_net(self.extract_features(leaves_obs))
+            return self.action_net(self.mlp_extractor.policy_net(shared_features)), None
+        shared_features = self.mlp_extractor.shared_net(self.extract_features(leaves_obs))
+        latent_pi = self.mlp_extractor.policy_net(shared_features)
+        latent_vf_root = self.mlp_extractor.value_net(shared_features)
         value_root = self.value_net(latent_vf_root)
         return latent_pi, value_root
