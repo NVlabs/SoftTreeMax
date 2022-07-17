@@ -177,7 +177,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
                 mean_actions_per_subtree = self.beta * mean_actions_batch.reshape([self.action_space.n, -1])
                 mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
             else:
-                squash_q = th.sum(th.clip(self.beta * th.exp(mean_actions_batch), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
+                squash_q = th.sum(th.clip(th.exp(self.beta * mean_actions_batch), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
                 mean_actions_logits_batch = torch.zeros(self.action_space.n, 1, device=squash_q.device)
                 mean_actions_logits_batch.scatter_add_(0, all_first_actions[i].to(squash_q.device), squash_q)
                 mean_actions_logits_batch = torch.log(mean_actions_logits_batch.transpose(1, 0) + 1e-6)
