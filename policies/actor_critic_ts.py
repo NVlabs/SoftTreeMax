@@ -11,7 +11,7 @@ from policies.cule_bfs import CuleBFS
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, learn_beta, max_width, **kwargs):
+                 learn_alpha, learn_beta, max_width, use_leaves_v, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
         self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value, max_width)
@@ -35,6 +35,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         if self.learn_beta:
             self.beta = th.nn.Parameter(self.beta)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+        self.use_leaves_v = use_leaves_v
 
     # @profile
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
@@ -57,10 +58,14 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         self.timestep2obs_dict[self.time_step] = hash_obs
         # TODO: Check if more efficient extracting features from obs and leaves_observation simultaneously
         # Preprocess the observation if needed
-        latent_pi, value_root = self.compute_value(leaves_obs=leaves_observations, root_obs=obs)
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
+        if self.use_leaves_v:
+            latent_pi, value_root = self.compute_value(leaves_obs=leaves_observations, root_obs=obs)
+            value_root = (val_coef * value_root + rewards.reshape([-1, 1])).max()
+        else:
+            latent_pi, value_root = self.compute_value2(leaves_obs=leaves_observations, root_obs=obs)
         mean_actions = val_coef * self.action_net(latent_pi) + rewards.reshape([-1, 1])
-        value_root = (val_coef * value_root + rewards.reshape([-1, 1])).max()
+
         # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
         # # This version builds distribution to have
         if self.cule_bfs.max_width == -1:
@@ -140,7 +145,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         ret_values = torch.zeros((batch_size, 1), device=actions.device)
         # Preprocess the observation if needed
         hash_obses = self.hash_obs(obs)
-        all_leaves_obs = []
+        all_leaves_obs = [] if self.use_leaves_v else [obs]
         all_rewards = []
         all_first_actions = []
         for i in range(batch_size):
@@ -159,19 +164,25 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
         cat_features = self.extract_features(th.cat(all_leaves_obs))
         shared_features = self.mlp_extractor.shared_net(cat_features)
-        latent_pi = self.mlp_extractor.policy_net(shared_features)
-        latent_vf_root = self.mlp_extractor.value_net(shared_features)
+        if self.use_leaves_v:
+            latent_pi = self.mlp_extractor.policy_net(shared_features)
+            latent_vf_root = self.mlp_extractor.value_net(shared_features)
+        else:
+            latent_pi = self.mlp_extractor.policy_net(shared_features[batch_size:])
+            latent_vf_root = self.mlp_extractor.value_net(shared_features[:batch_size])
         values = self.value_net(latent_vf_root)
         # Assaf added
         mean_actions = val_coef * self.action_net(latent_pi) + all_rewards_th
-        values_subtrees = val_coef * values + all_rewards_th
+        if self.use_leaves_v:
+            values_subtrees = val_coef * values + all_rewards_th
         subtree_width = self.action_space.n ** self.cule_bfs.max_depth
         if self.cule_bfs.max_width != -1:
             subtree_width = min(subtree_width, self.cule_bfs.max_width*self.action_space.n)
         # TODO: Optimize here
         for i in range(batch_size):
             mean_actions_batch = mean_actions[subtree_width * i:subtree_width * (i + 1)]
-            ret_values[i, 0] = values_subtrees[subtree_width * i:subtree_width * (i + 1)].max()
+            if self.use_leaves_v:
+                ret_values[i, 0] = values_subtrees[subtree_width * i:subtree_width * (i + 1)].max()
             if self.cule_bfs.max_width == -1:
                 subtree_width = self.action_space.n ** self.cule_bfs.max_depth
                 mean_actions_per_subtree = self.beta * mean_actions_batch.reshape([self.action_space.n, -1])
@@ -199,7 +210,10 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         log_prob = distribution.log_prob(actions)
         # old_values, old_log_probs, old_dist = super(ActorCriticCnnPolicy, self).evaluate_actions(obs, actions)
         # print("Bla", old_values - values, old_log_probs - log_prob, old_dist - distribution.entropy())
-        return ret_values, log_prob, distribution.entropy()
+        if self.use_leaves_v:
+            return ret_values, log_prob, distribution.entropy()
+        else:
+            return values, log_prob, distribution.entropy()
 
     def hash_obs(self, obs):
         # return (obs[:, -2:, :, :].double() + obs[:, -2:, :, :].double().pow(2)).view(obs.shape[0], -1).sum(dim=1).int()
