@@ -55,6 +55,7 @@ parser.add_argument('--experiment_type', type=str, default="")  # Runtime_optimi
 parser.add_argument('--experiment_description', type=str, default="")
 parser.add_argument('--hash_buffer_size', type=int, default=-1)
 parser.add_argument('--use_leaves_v', type=str2bool, nargs='?', const=True, default=False)
+parser.add_argument('--use_warm_start', type=str2bool, nargs='?', const=True, default=False)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
 config = wandb.config
@@ -103,17 +104,19 @@ else:
 # learning_rate=config.learning_rate,
 
 
-#
-# data, params, pytorch_variables = load_from_zip_file("./gxa0fpr9_mspacman_35M.zip", device="auto", custom_objects=None, print_system_info=False)
-# # model.policy.load_state_dict(params['policy'], strict=False)
-# own_state = model.policy.state_dict()
-# for name, param in params['policy'].items():
-#     if not name.startswith('features_extractor'):
-#          continue
-#     if isinstance(param, th.nn.Parameter):
-#         # backwards compatibility for serialized parameters
-#         param = param.data
-#     own_state[name].copy_(param)
+saved_models = {'MsPacmanNoFrameskip-v4': 'gxa0fpr9_mspacman_35M.zip'}
+if config.use_warm_start and saved_models.get(config.env_name) is not None:
+    saved_model_path = '../' + saved_models[config.env_name]
+    data, params, pytorch_variables = load_from_zip_file(saved_model_path, device="auto", custom_objects=None, print_system_info=False)
+    # model.policy.load_state_dict(params['policy'], strict=False)
+    own_state = model.policy.state_dict()
+    for name, param in params['policy'].items():
+        if not name.startswith('features_extractor'):
+             continue
+        if isinstance(param, th.nn.Parameter):
+            # backwards compatibility for serialized parameters
+            param = param.data
+        own_state[name].copy_(param)
 
 
 if not config.eval_saved_agent:

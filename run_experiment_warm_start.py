@@ -56,8 +56,9 @@ parser.add_argument('--max_width', type=int, default=-1)
 parser.add_argument('--experiment_type', type=str, default="")  # Runtime_optimization, Debug, Paper_main, Ablation, Hyperparameter_sweep
 parser.add_argument('--experiment_description', type=str, default="")
 parser.add_argument('--hash_buffer_size', type=int, default=-1)
-parser.add_argument('--n_envs', type=int, default=1024)
-parser.add_argument('--n_envs_timesteps', type=int, default=10000)
+parser.add_argument('--n_envs', type=int, default=128)
+parser.add_argument('--n_envs_timesteps', type=int, default=5000000)
+parser.add_argument('--use_leaves_v', type=str2bool, nargs='?', const=True, default=False)
 
 
 
@@ -103,7 +104,7 @@ else:
     max_width = int(config.max_width / env.action_space.n) if config.max_width != -1 else -1
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
                      'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha,
-                     'learn_beta': config.learn_beta, 'max_width': max_width}
+                     'learn_beta': config.learn_beta, 'max_width': max_width, 'use_leaves_v': config.use_leaves_v}
     model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs, **PPO_params)
 
 # data, params, pytorch_variables = load_from_zip_file("./gxa0fpr9_mspacman_35M.zip", device="auto", custom_objects=None, print_system_info=False)
@@ -118,5 +119,7 @@ for name, param in warm_state.items():
         param = param.data
     own_state[name].copy_(param)
 
-callbacks = [WandbTrainingCallback()]
+wandb_callback = WandbTrainingCallback()
+wandb_callback.warm_start = model_nenvs.num_timesteps
+callbacks = [wandb_callback]
 model.learn(total_timesteps=config.total_timesteps, log_interval=None, callback=callbacks)
