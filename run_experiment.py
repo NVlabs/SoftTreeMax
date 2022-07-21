@@ -106,7 +106,7 @@ else:
 
 saved_models = {'MsPacmanNoFrameskip-v4': 'gxa0fpr9_mspacman_35M.zip'}
 if config.use_warm_start and saved_models.get(config.env_name) is not None:
-    saved_model_path = '../' + saved_models[config.env_name]
+    saved_model_path = '' + saved_models[config.env_name]
     data, params, pytorch_variables = load_from_zip_file(saved_model_path, device="auto", custom_objects=None, print_system_info=False)
     # model.policy.load_state_dict(params['policy'], strict=False)
     own_state = model.policy.state_dict()
