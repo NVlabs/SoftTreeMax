@@ -104,7 +104,8 @@ else:
 # learning_rate=config.learning_rate,
 
 
-saved_models = {'MsPacmanNoFrameskip-v4': 'gxa0fpr9_mspacman_35M.zip'}
+saved_models = {'MsPacmanNoFrameskip-v4': 'gxa0fpr9_mspacman_35M.zip',
+                'HeroNoFrameskip-v4': 'saved_agents/ogt7u4da_hero_35M' }
 if config.use_warm_start and saved_models.get(config.env_name) is not None:
     print("Loading warm start model")
     saved_model_path = '' + saved_models[config.env_name]
