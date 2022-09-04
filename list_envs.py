@@ -15,13 +15,14 @@ left_envs = all_envs - bad_envs
 
 
 def snake_to_camel(word):
-    return ''.join(x.capitalize() or '_' for x in word.split('_'))
+    return ''.join(x.capitalize() or '_' for x in word.split('_')) + 'NoFrameskip-v4'
+
 def camel_to_snake(word):
     import re
     return re.sub(r'(?<!^)(?=[A-Z])', '_', word).lower()
 
 def build_env(env_name):
-    return AtariEnv(snake_to_camel(env_name) + 'NoFrameskip-v4', 1)
+    return AtariEnv(snake_to_camel(env_name), 1)
 
 for i, env in enumerate(left_envs):
     print('{}/{} Trying to create {}'.format(i + 1, len(left_envs) , env))
@@ -76,4 +77,4 @@ already_ran = {'AlienNoFrameskip-v4',
 for e in already_ran:
     good_envs.remove(camel_to_snake(e.replace('NoFrameskip-v4','')))
 
-print('remaining good envs: {}'.format(good_envs))
+print('remaining good envs: {}'.format([snake_to_camel(e) for e in good_envs]))
