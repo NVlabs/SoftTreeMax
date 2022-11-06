@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
-FROM_CSV = False
+FROM_CSV = True
 CSV_PATH = 'pgtree_results.h5'
 store = pd.HDFStore(CSV_PATH)
 
@@ -16,11 +16,14 @@ if not FROM_CSV:
     config_list = []
     name_list = []
     steps_list = []
+    timestamps_list = []
     rewards_list = []
-    sweep_ids = ['e2oawpk0', 'n5sealqt', 'iqpkpwcr', 'k9cwlb2n']
+    variances_list = []
+    relevant_descriptions = ["Baseline of multiple environments PPO fixed episodic", "All games all depths"]
     for run in runs:
-        if run.sweep is not None and run.sweep.id in sweep_ids:
-            h_df = run.scan_history() # can either use run.history() or, instead, scan_history() and build list of dicts via [r for r in h_df]
+        # if run.sweep is not None and run.sweep.id in sweep_ids:
+        if 'experiment_description' in run.config and run.config['experiment_description'] in relevant_descriptions:
+            h_df = run.history(keys=['train\episodic_reward', '_timestamp', 'train\policy_weights_grad_var'], samples=3000) # can either use run.history() or, instead, scan_history() and build list of dicts via [r for r in h_df]
             hist_dicts = [r for r in h_df]
             if len(hist_dicts) > 0: # len(h_df) > 0:
                 # run.summary are the output key/values like accuracy.
@@ -41,16 +44,17 @@ if not FROM_CSV:
                 # steps_list.append(h_df.filter(['_step']))
                 # rewards_list.append(list(h_df.filter(['reward']).reward))
                 env_name = config_list[0]['env_name']
-                if 'MsPacman' in env_name:
-                    rew_str = 'episodic_reward'
-                elif 'maze' in env_name:
-                    rew_str = 'tot_reward'
-                else:
-                    rew_str = 'reward'
-                steps = [e['_step'] for e in hist_dicts]
-                rewards = [e[rew_str] for e in hist_dicts]
+                rew_str = 'reward'
+                # steps = [e['_step'] for e in hist_dicts]
+                # rewards = [e[rew_str] for e in hist_dicts]
+                steps = h_df._step.to_list()
+                timestamps = h_df._timestamp.to_list()
+                rewards = h_df['train\episodic_reward'].to_list()
+                variances = h_df['train\policy_weights_grad_var'].to_list()
                 steps_list.append(steps)
+                timestamps_list.append(timestamps)
                 rewards_list.append(rewards)
+                variances_list.append(variances)
                 # rewards_list.append(list(h_df.filter(['reward']).reward))
 
     summary_df = pd.DataFrame.from_records(summary_list)
@@ -59,28 +63,30 @@ if not FROM_CSV:
     # history_df = pd.DataFrame.from_records(history_list)
     reward_df = pd.DataFrame({'reward_vec': [np.nan] * len(name_df)})
     reward_df['reward_vec'] = reward_df['reward_vec'].astype('object')
-    for i_delay, l in enumerate(rewards_list):
-        reward_df.reward_vec[i_delay] = l
+    for i_r, r in enumerate(rewards_list):
+        reward_df.reward_vec[i_r] = r
     step_df = pd.DataFrame({'step_vec': [np.nan] * len(name_df)})
     step_df['step_vec'] = step_df['step_vec'].astype('object')
     for i_step, s in enumerate(steps_list):
         step_df.step_vec[i_step] = s
+    timestamp_df = pd.DataFrame({'timestamp_vec': [np.nan] * len(name_df)})
+    timestamp_df['timestamp_vec'] = timestamp_df['timestamp_vec'].astype('object')
+    for i_timestamp, ts in enumerate(timestamps_list):
+        timestamp_df.timestamp_vec[i_timestamp] = ts
+    variance_df = pd.DataFrame({'variance_vec': [np.nan] * len(name_df)})
+    variance_df['variance_vec'] = variance_df['variance_vec'].astype('object')
+    for i_variance, v in enumerate(variances_list):
+        variance_df.variance_vec[i_variance] = v
 
-    all_df = pd.concat([name_df, config_df, summary_df, reward_df, step_df], axis=1)
+    all_df = pd.concat([name_df, config_df, summary_df, reward_df, step_df, timestamp_df, variance_df], axis=1)
+    store['all_df'] = all_df
 else:
     # all_df = pd.read_csv(CSV_PATH)
-    all_df = store['df']
-
+    all_df = store['all_df']
+    # store['df'] = all_df
 
 convergence_plots = True
 if convergence_plots and FROM_CSV:
-    fontsize = 14
-    all_df = all_df[all_df.name != 'bumbling-sweep-15']
-    all_df = all_df[all_df.name != 'honest-sweep-26']
-    n_rolling_mean = 0 #50
-    colors = {'Augmented-Q': 'blue', 'Delayed-Q': 'green', 'Oblivious-Q': 'red'}
-    # def moving_average(x, w):
-    #     return np.convolve(x, np.ones(w), 'valid') / w
     def moving_average(x, alpha):
         out = [x[0]]
         c = 1
@@ -89,123 +95,131 @@ if convergence_plots and FROM_CSV:
             out.append(new_val)
             c += 1
         return np.asarray(out)
+    def moving_average2(x, w=20):
+        return np.convolve(x, np.ones(w), 'same') / np.convolve(x * 0 + 1, np.ones(w), 'same') # w
 
-    # figure, axes = plt.subplots(3, 4)
-    figure, big_axes = plt.subplots(figsize=(15.0, 15.0), nrows=3, ncols=1, sharey=True)
+    depths_to_ignore = [1, 4, 7]
 
-    CSV_PATH_LIST = ['maze_convergence.h5', 'noisy_cartpole_convergence.h5', 'pacman_convergence.h5']
-    for i_env, csv_path in enumerate(CSV_PATH_LIST):
-        curr_store = pd.HDFStore(csv_path)
-        all_df = curr_store['df']
+    import matplotlib
+    import matplotlib.colors as mcol
+    import matplotlib.cm as cm
 
-        env_name_orig = all_df.env_name.iloc[0]
-        delay_str = 'delay_value'
-        agent_str = 'agent_type'
-        LABEL_DICT = {'augmented': 'Augmented-Q', 'oblivious': 'Oblivious-Q', 'delayed': 'Delayed-Q'}
-        maze_delay_sweeps = {0: 'e2oawpk0', 5: 'n5sealqt', 15: 'iqpkpwcr', 25: 'k9cwlb2n'}
+    # Make a user-defined colormap.
+    cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["b", "r"])
 
-        if 'maze' in env_name_orig:
-            env_name = 'Maze'
-            delay_str = 'delay'
-            agent_str = 'exp_label'
-            LABEL_DICT = {'augmentedQ': 'Augmented-Q', 'obliviousQ': 'Oblivious-Q', 'modQ': 'Delayed-Q'}
-        elif 'MsPacman' in env_name_orig:
-            env_name = 'MsPacman'
-        else:
-            env_name = 'Noisy CartPole'
+    # Make a normalizer that will map the time values from
+    # [start_time,end_time+1] -> [0,1].
+    cnorm = mcol.Normalize(vmin=1, vmax=8)
 
-        big_axes[i_env].set_title(env_name, fontsize=19)
-        # Turn off axis lines and ticks of the big subplot
-        # obs alpha is 0 in RGBA string!
-        big_axes[i_env].tick_params(labelcolor=(1., 1., 1., 0.0), top='off', bottom='off', left='off', right='off')
-        # removes the white frame
-        big_axes[i_env]._frameon = False
+    # Turn these into an object that can be used to map time values to colors and
+    # can be passed to plt.colorbar().
+    cpick = cm.ScalarMappable(norm=cnorm, cmap=cm1)
+    cpick.set_array([])
 
-        df_delays = all_df.groupby([delay_str])
-        # figure, axes = plt.subplots(1, len(df_delays.groups))
-        for i_delay, delay_value in enumerate(df_delays.groups):
-            if 'maze' in env_name_orig:
-                all_df_filtered = all_df[all_df.sweep_id == maze_delay_sweeps[delay_value]]
-                df_delays = all_df_filtered.groupby([delay_str])
-            if delay_value > 15:
-                alpha_smoothing = 0.99
-            else:
-                alpha_smoothing = 0.98
-            is_first = i_delay == 0
-            df_env = df_delays.get_group(delay_value)[['name', agent_str, 'seed', 'reward_vec', 'step_vec']]
-            df_agents = df_env.groupby([agent_str])
-            for i_agent, agent_type in enumerate(df_agents.groups):  # iterate on agents
-                if agent_type == 'rnn':
-                    break
-                df_agent = df_agents.get_group(agent_type)
-                min_y_len = min(df_agent.reward_vec.str.len()) - n_rolling_mean
-                smallest_x = min([l[-1] for l in df_agent.step_vec])
-                # max_y_len = max(df_agent.reward_vec.str.len()) - n_rolling_mean
-                y_vals_vec = None
-                longest_x_vals = []
-                for i_run in range(df_agent.shape[0]):  # iterate on seeds
-                    plot_vals = df_agent.iloc[i_run].reward_vec
-                    x_vals = np.asarray(df_agent.iloc[i_run].step_vec)
-                    x_vals = x_vals [x_vals <= smallest_x]
-                    # if len(x_vals) > len(longest_x_vals):
-                    #     longest_x_vals = x_vals
-                    # x_vals = [e[0] for e in plot_vals][n_rolling_mean - 1:]
-                    # y_vals = moving_average(plot_vals, n_rolling_mean)[:min_y_len]
-                    y_vals = moving_average(plot_vals, alpha_smoothing)[:len(x_vals)]
-                    # joint_seq = [(x, y) for (x, y) in zip(x_vals, y_vals)]
-                    # ts = traces.TimeSeries(data=joint_seq)
-                    # regularized = ts.moving_average(start=joint_seq[0][0], sampling_period=1, placement='left')
-                    # print('done')
-                    # x_vals = [e[0] for e in regularized]; y_vals = [e[1] for e in regularized]
-                    # padding_len = max_y_len - len(y_vals)
-                    # if padding_len > 0:
-                    #     padding = np.empty((padding_len,)); padding[:] = np.nan
-                    #     y_vals = np.concatenate((y_vals, padding))
-                    f = interp1d(x_vals, y_vals)
-                    x_vals = np.linspace(np.min(x_vals), np.max(x_vals), round(smallest_x / 3))
-                    y_vals = f(x_vals)
-                    if y_vals_vec is None:
-                        y_vals_vec = y_vals
-                    else:
-                        y_vals_vec = np.vstack((y_vals_vec, y_vals))
-                label = LABEL_DICT[agent_type]
-                color = colors[label]
-                i_subplot = 1 + i_env * 4 + i_delay
-                ax = figure.add_subplot(3, 4, i_subplot)
+    line_width = 2
+    fontsize = 18
+    w_size = 10000
+    matplotlib.rcParams.update({'font.size': fontsize - 4})
+    game_envs = ['Asteroids', 'Breakout', 'CrazyClimber', 'KungFuMaster', 'VideoPinball', 'Phoenix',
+                 'Gopher', 'Krull', 'NameThisGame']#, 'RoadRunner']
+    game_envs_full = [n + 'NoFrameskip-v4' for n in game_envs]
+    ylim_dict = {'Breakout': 350, 'Asteroids': 5000, 'VideoPinball': 400000, 'SpaceInvaders': 1200, 'MsPacman': 2500}
+    # figure, big_axes = plt.subplots(nrows=1, ncols=len(game_envs))
+    figure, big_axes = plt.subplots(figsize=(15.0, 15.0), nrows=3, ncols=3) #, sharey=True)
+    # for i in range(len(game_envs)):
+    #     big_axes[i].tick_params(labelcolor=(1., 1., 1., 0.0), top='off', bottom='off', left='off', right='off')
+    #     # removes the white frame
+    #     big_axes[i]._frameon = False
 
-                if len(y_vals_vec.shape) > 1:
-                    y_mean = np.nanmean(y_vals_vec, axis=0)
-                    # y_mean = np.median(y_vals_vec, axis=0)
-                    y_std = np.nanstd(y_vals_vec, axis=0)
-                    # y_std = y_vals_vec.nanstd(axis=0)
-                    under_line = (y_mean - y_std)
-                    over_line = (y_mean + y_std)
-                    ax.plot(x_vals, y_mean, linewidth=1, label=label, color=color)  # mean curve.
-                    ax.fill_between(x_vals, under_line, over_line, color='b', alpha=.1)
+    for i in range(len(big_axes)):
+        for j in range(len(big_axes[0])):
+            big_axes[i][j].set_xticks([])
+            big_axes[i][j].set_yticks([])
+    # plt.tick_params(
+    #     axis='x',  # changes apply to the x-axis
+    #     which='both',  # both major and minor ticks are affected
+    #     bottom=False,  # ticks along the bottom edge are off
+    #     top=False,  # ticks along the top edge are off
+    #     labelbottom=False)  # labels along the bottom edge are off
+
+    alpha_smoothing = 0.9
+
+    plot_count = 0
+    df_envs = all_df.groupby(['env_name'])
+    for i_env, env_name in enumerate(df_envs.groups):
+        if env_name not in game_envs_full:
+            continue
+        plot_count += 1
+        # if 'Kung' not in env_name: # and 'Asteroids' not in env_name:
+        #     continue
+        # if plot_count > 1:
+        #     break
+        ax = figure.add_subplot(3, 3, plot_count)
+        df_env = df_envs.get_group(env_name)
+        df_depths = df_env.groupby('tree_depth')
+        for i_depth, depth in enumerate(df_depths.groups):
+            if depth in depths_to_ignore:
+                continue
+            df_depth = df_depths.get_group(depth)
+            # min_y_len = min(df_depth.reward_vec.str.len()) - w_size
+            min_y_len = min(df_depth.variance_vec.str.len()) - w_size
+            # smallest_x = min([l[-1] for l in df_depth.step_vec])
+            largest_x = max([l[-1] - l[0] for l in df_depth.timestamp_vec])
+            largest_x_len = max([len(l) for l in df_depth.timestamp_vec])
+            x_vals_shared = np.linspace(0, largest_x, round(largest_x / 3))
+            y_vals_vec = None
+            for i_run in range(df_depth.shape[0]):  # iterate on seeds
+                # y_vals = df_depth.iloc[i_run].reward_vec
+                y_vals = df_depth.iloc[i_run].variance_vec
+                x_vals = np.asarray(df_depth.iloc[i_run].timestamp_vec) - np.asarray(df_depth.iloc[i_run].timestamp_vec)[0]
+                f = interp1d(x_vals, y_vals)
+                last_loc = np.where(x_vals_shared >= x_vals[-1])[0][0]
+                x_vals = x_vals_shared[:last_loc]
+                y_vals = f(x_vals)
+                y_vals = moving_average2(y_vals, w=w_size)
+                w_drop = 10000
+                nans = np.empty(x_vals_shared.shape[0] - len(y_vals))
+                nans[:] = np.nan
+                y_vals = np.concatenate((y_vals, nans))
+
+                if y_vals_vec is None:
+                    y_vals_vec = y_vals
                 else:
-                    ax.plot(x_vals, y_vals_vec, linewidth=1, label=label, color=color)  # mean curve.
-                # axes[i_delay].set_ylim(bottom=0)
-                ax.set_title('Delay m={}'.format(delay_value), fontsize=fontsize)
-                if i_delay == 0:
-                    ax.set_ylabel('Reward', fontsize=fontsize)
-                ax.set_xlabel('Steps', fontsize=fontsize)
+                    y_vals_vec = np.vstack((y_vals_vec, y_vals))
+            label = 'Depth {}'.format(depth)
+            if depth == 0:
+                color = 'g'
+                final_label = 'PPO'
+                lw = line_width + 1
+            else:
+                color = cpick.to_rgba(depth)
+                final_label = 'PPO ' + label
+                lw = line_width
+            # i_subplot = 1 + i_env * 4 + i_delay
+            ax = figure.add_subplot(3, 3, plot_count)
+            if len(y_vals_vec.shape) > 1:
+                y_mean = np.nanmean(y_vals_vec, axis=0)
+                y_std = np.nanstd(y_vals_vec, axis=0)
+                under_line = (y_mean - y_std)
+                over_line = (y_mean + y_std)
+                ax.plot(x_vals_shared[:-w_drop] / 3600, y_mean[:-w_drop], linewidth=lw, label=final_label, color=color)
+                ax.fill_between(x_vals_shared[:-w_drop] / 3600, under_line[:-w_drop], over_line[:-w_drop], color=color, alpha=.15)
+                ax.set_xlim([0, 168])
+                ax.set_xlabel('Time [hours]', fontsize=fontsize)
+                # ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
                 ax.grid('on')
-                if 'maze' not in env_name_orig:
-                    import matplotlib.ticker as ticker
-                    ax.xaxis.set_major_formatter(ticker.EngFormatter())
-                    if 'MsPacman' in env_name_orig:
-                        ax.set_xlim(0, 1000000)
-                    else:
-                        ax.set_xlim(0, 250000)
-            if i_delay == 0:
-                lines_labels = ax.get_legend_handles_labels()
-                lines, labels = lines_labels[0], lines_labels[1]
-                # legend1 = figure.legend(lines, labels, loc='upper left', fontsize=fontsize)
-                legend1 = figure.legend(lines, labels, loc=(0.01, 0.89), fontsize=fontsize)
-                legend2 = figure.legend(lines, labels, loc=(0.01, 0.58), fontsize=fontsize)
-                figure.legend(lines, labels, loc=(0.01, 0.26), fontsize=fontsize)
-                figure.gca().add_artist(legend1)
-                figure.gca().add_artist(legend2)
+                ax.set_title(env_name[:-14], fontsize=fontsize)
+            else:
+                ax.plot(x_vals_shared[:-w_drop] / 3600, y_vals_vec[:-w_drop], linewidth=lw, label=final_label, color=color)
+            ax.set_yscale('log')
+            if plot_count in [1, 4, 7]:
+                # ax.set_ylabel('Reward', fontsize=fontsize)
+                ax.set_ylabel('Gradient variance (log scale)', fontsize=fontsize)
+            if plot_count == 1:
+                plt.legend()
+
+
+    plt.show()
 
     figure.set_facecolor('w')
     plt.tight_layout()
