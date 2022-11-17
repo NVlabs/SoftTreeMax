@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
 FROM_CSV = True
+PLOT_REWARD = True # True: reward False: grad variance
 CSV_PATH = 'pgtree_results.h5'
 store = pd.HDFStore(CSV_PATH)
 
@@ -120,12 +121,12 @@ if convergence_plots and FROM_CSV:
     fontsize = 18
     w_size = 10000
     matplotlib.rcParams.update({'font.size': fontsize - 4})
-    game_envs = ['Asteroids', 'Breakout', 'CrazyClimber', 'KungFuMaster', 'VideoPinball', 'Phoenix',
-                 'Gopher', 'Krull', 'NameThisGame']#, 'RoadRunner']
+    game_envs = ['Asteroids', 'Breakout', 'CrazyClimber', 'KungFuMaster', 'Phoenix',
+                 'Gopher', 'Krull', 'NameThisGame', 'VideoPinball']#, 'VideoPinball', 'RoadRunner']
     game_envs_full = [n + 'NoFrameskip-v4' for n in game_envs]
     ylim_dict = {'Breakout': 350, 'Asteroids': 5000, 'VideoPinball': 400000, 'SpaceInvaders': 1200, 'MsPacman': 2500}
     # figure, big_axes = plt.subplots(nrows=1, ncols=len(game_envs))
-    figure, big_axes = plt.subplots(figsize=(15.0, 15.0), nrows=3, ncols=3) #, sharey=True)
+    figure, big_axes = plt.subplots(figsize=(15.0, 15.0), nrows=3, ncols=3) # nrows=2, ncols=4) #, sharey=True)
     # for i in range(len(game_envs)):
     #     big_axes[i].tick_params(labelcolor=(1., 1., 1., 0.0), top='off', bottom='off', left='off', right='off')
     #     # removes the white frame
@@ -150,10 +151,7 @@ if convergence_plots and FROM_CSV:
         if env_name not in game_envs_full:
             continue
         plot_count += 1
-        # if 'Kung' not in env_name: # and 'Asteroids' not in env_name:
-        #     continue
-        # if plot_count > 1:
-        #     break
+        # ax = figure.add_subplot(2, 4, plot_count)
         ax = figure.add_subplot(3, 3, plot_count)
         df_env = df_envs.get_group(env_name)
         df_depths = df_env.groupby('tree_depth')
@@ -161,16 +159,20 @@ if convergence_plots and FROM_CSV:
             if depth in depths_to_ignore:
                 continue
             df_depth = df_depths.get_group(depth)
-            # min_y_len = min(df_depth.reward_vec.str.len()) - w_size
-            min_y_len = min(df_depth.variance_vec.str.len()) - w_size
+            if PLOT_REWARD:
+                min_y_len = min(df_depth.reward_vec.str.len()) - w_size
+            else:
+                min_y_len = min(df_depth.variance_vec.str.len()) - w_size
             # smallest_x = min([l[-1] for l in df_depth.step_vec])
             largest_x = max([l[-1] - l[0] for l in df_depth.timestamp_vec])
             largest_x_len = max([len(l) for l in df_depth.timestamp_vec])
             x_vals_shared = np.linspace(0, largest_x, round(largest_x / 3))
             y_vals_vec = None
             for i_run in range(df_depth.shape[0]):  # iterate on seeds
-                # y_vals = df_depth.iloc[i_run].reward_vec
-                y_vals = df_depth.iloc[i_run].variance_vec
+                if PLOT_REWARD:
+                    y_vals = df_depth.iloc[i_run].reward_vec
+                else:
+                    y_vals = df_depth.iloc[i_run].variance_vec
                 x_vals = np.asarray(df_depth.iloc[i_run].timestamp_vec) - np.asarray(df_depth.iloc[i_run].timestamp_vec)[0]
                 f = interp1d(x_vals, y_vals)
                 last_loc = np.where(x_vals_shared >= x_vals[-1])[0][0]
@@ -196,7 +198,7 @@ if convergence_plots and FROM_CSV:
                 final_label = 'PPO ' + label
                 lw = line_width
             # i_subplot = 1 + i_env * 4 + i_delay
-            ax = figure.add_subplot(3, 3, plot_count)
+            # ax = figure.add_subplot(2, 4, plot_count)
             if len(y_vals_vec.shape) > 1:
                 y_mean = np.nanmean(y_vals_vec, axis=0)
                 y_std = np.nanstd(y_vals_vec, axis=0)
@@ -211,10 +213,14 @@ if convergence_plots and FROM_CSV:
                 ax.set_title(env_name[:-14], fontsize=fontsize)
             else:
                 ax.plot(x_vals_shared[:-w_drop] / 3600, y_vals_vec[:-w_drop], linewidth=lw, label=final_label, color=color)
-            ax.set_yscale('log')
+            if not PLOT_REWARD:
+                ax.set_yscale('log')
+            # if plot_count in [1, 5]:
             if plot_count in [1, 4, 7]:
-                # ax.set_ylabel('Reward', fontsize=fontsize)
-                ax.set_ylabel('Gradient variance (log scale)', fontsize=fontsize)
+                if PLOT_REWARD:
+                    ax.set_ylabel('Reward', fontsize=fontsize)
+                else:
+                    ax.set_ylabel('Gradient variance (log scale)', fontsize=fontsize)
             if plot_count == 1:
                 plt.legend()
 
