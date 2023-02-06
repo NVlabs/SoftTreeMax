@@ -3,6 +3,7 @@ from typing import Tuple
 import torch
 import torch as th
 import numpy as np
+import math
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from stable_baselines3.common.distributions import Distribution
 
@@ -12,7 +13,7 @@ from policies.cule_bfs import CuleBFS
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, learn_beta, max_width, use_leaves_v, **kwargs):
+                 learn_alpha, learn_beta, max_width, use_leaves_v, is_cumulative_mode, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
         self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value, max_width)
@@ -24,6 +25,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
         self.learn_beta = learn_beta
+        self.is_cumulative_mode = is_cumulative_mode
         self.alpha = th.tensor(0.5 if learn_alpha else 1.0, device=self.device)
         self.beta = th.tensor(1.0, device=self.device)
         # if max_width == -1:
@@ -70,19 +72,19 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         # values = (val_coef * self.value_net(latent_vf) + rewards.reshape([-1, 1])).max(0, keepdims=True)[0]
         # # This version builds distribution to have
         if self.cule_bfs.max_width == -1:
-            # import time
-            # t1 = time.time()
-            # for t in range(1000):
             mean_actions_per_subtree = self.beta * mean_actions.reshape([self.action_space.n, -1])
-            mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
-            # print("Time of 1000xoriginal: ", time.time() - t1)
         else:
             mean_actions_per_subtree = th.zeros(self.action_space.n, mean_actions.shape[0], mean_actions.shape[1],
                                                 device=mean_actions.device) - 1e6
             idxes = th.arange(mean_actions.shape[0])
             mean_actions_per_subtree[first_action.flatten(), idxes, :] = mean_actions
             mean_actions_per_subtree = self.beta * mean_actions_per_subtree.reshape([self.action_space.n, -1])
-            mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+        if self.is_cumulative_mode:
+            mean_actions_logits = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+        else:
+            # To obtain the mean we subtract the normalization log(#leaves)
+            mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0) - \
+                                  math.log(mean_actions_per_subtree.shape[1])
 
             # mean_actions_logits2 = torch.zeros(1, self.action_space.n, device=mean_actions.device)
             # for action in range(self.action_space.n):
