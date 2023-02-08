@@ -73,18 +73,23 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         # # This version builds distribution to have
         if self.cule_bfs.max_width == -1:
             mean_actions_per_subtree = self.beta * mean_actions.reshape([self.action_space.n, -1])
+            counts = th.ones([1, self.action_space.n]) * mean_actions_per_subtree.shape[1]
         else:
             mean_actions_per_subtree = th.zeros(self.action_space.n, mean_actions.shape[0], mean_actions.shape[1],
-                                                device=mean_actions.device) - 1e6
+                                                device=mean_actions.device) # -1e6
             idxes = th.arange(mean_actions.shape[0])
+            counts = th.zeros(self.action_space.n)
+            v, c = th.unique(first_action, return_counts=True)
+            counts[v] = c.type(th.float32) * self.action_space.n
             mean_actions_per_subtree[first_action.flatten(), idxes, :] = mean_actions
             mean_actions_per_subtree = self.beta * mean_actions_per_subtree.reshape([self.action_space.n, -1])
+        counts = counts.to(mean_actions.device).reshape([1, -1])
         if self.is_cumulative_mode:
             mean_actions_logits = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
         else:
             # To obtain the mean we subtract the normalization log(#leaves)
             mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0) - \
-                                  math.log(mean_actions_per_subtree.shape[1])
+                                  th.log(counts)#math.log(mean_actions_per_subtree.shape[1])
 
             # mean_actions_logits2 = torch.zeros(1, self.action_space.n, device=mean_actions.device)
             # for action in range(self.action_space.n):
