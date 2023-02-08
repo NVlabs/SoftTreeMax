@@ -9,12 +9,12 @@ from stable_baselines3.common.distributions import Distribution
 
 from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
 from policies.cule_bfs import CuleBFS
-from utils import add_exploration_logits
+from utils import add_regularization_logits
 
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, learn_beta, max_width, use_leaves_v, is_cumulative_mode, exploration_coef, **kwargs):
+                 learn_alpha, learn_beta, max_width, use_leaves_v, is_cumulative_mode, regularization, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
         self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value, max_width)
@@ -27,7 +27,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         self.learn_alpha = learn_alpha
         self.learn_beta = learn_beta
         self.is_cumulative_mode = is_cumulative_mode
-        self.exploration_coef = exploration_coef
+        self.regularization = regularization
         self.alpha = th.tensor(0.5 if learn_alpha else 1.0, device=self.device)
         self.beta = th.tensor(1.0, device=self.device)
         # if max_width == -1:
@@ -133,7 +133,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             print("NaN in forward:depth0_logits!!!")
             depth0_logits[th.isnan(depth0_logits)] = 0
         mean_actions_logits = self.alpha * mean_actions_logits + (1 - self.alpha) * depth0_logits
-        mean_actions_logits = add_exploration_logits(mean_actions_logits, self.exploration_coef)
+        mean_actions_logits = add_regularization_logits(mean_actions_logits, self.regularization)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
         # DEBUG:
@@ -244,7 +244,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             depth0_logits[th.isnan(depth0_logits)] = 0
 
         mean_actions_logits = self.alpha * mean_actions_logits + (1 - self.alpha) * depth0_logits
-        mean_actions_logits = add_exploration_logits(mean_actions_logits, self.exploration_coef)
+        mean_actions_logits = add_regularization_logits(mean_actions_logits, self.regularization)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         log_prob = distribution.log_prob(actions)
         # old_values, old_log_probs, old_dist = super(ActorCriticCnnPolicy, self).evaluate_actions(obs, actions)
