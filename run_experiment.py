@@ -56,7 +56,7 @@ parser.add_argument('--experiment_description', type=str, default="")
 parser.add_argument('--hash_buffer_size', type=int, default=-1)
 parser.add_argument('--use_leaves_v', type=str2bool, nargs='?', const=True, default=False)
 parser.add_argument('--is_cumulative_mode', type=str2bool, nargs='?', const=True, default=False)
-parser.add_argument('--exploration_coef', type=float, default=0.0)
+parser.add_argument('--exploration_coef', type=float, default=0.001)
 parser.add_argument('--use_warm_start', type=str2bool, nargs='?', const=True, default=False)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")

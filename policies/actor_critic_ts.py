@@ -213,29 +213,24 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             if self.cule_bfs.max_width == -1:
                 subtree_width = self.action_space.n ** self.cule_bfs.max_depth
                 mean_actions_per_subtree = self.beta * mean_actions_batch.reshape([self.action_space.n, -1])
-                mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+                counts = th.ones([1, self.action_space.n]) * mean_actions_per_subtree.shape[1]
             else:
                 mean_actions_per_subtree = th.zeros(self.action_space.n, mean_actions_batch.shape[0], mean_actions_batch.shape[1],
                                                     device=mean_actions_batch.device) - 1e6
                 idxes = th.arange(mean_actions_batch.shape[0])
+                counts = th.zeros(self.action_space.n)
+                v, c = th.unique(all_first_actions[i], return_counts=True)
+                counts[v] = c.type(th.float32) * self.action_space.n
                 mean_actions_per_subtree[all_first_actions[i].flatten(), idxes, :] = mean_actions_batch
                 mean_actions_per_subtree = self.beta * mean_actions_per_subtree.reshape([self.action_space.n, -1])
-                mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+            counts = counts.to(mean_actions.device).reshape([1, -1])
+            if self.is_cumulative_mode:
+                mean_actions_logits[i, :] = th.sum(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0) / counts
+            else:
+                mean_actions_logits[i, :] = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0) - \
+                                  th.log(counts)
+            mean_actions_logits[i, counts[0, :] == 0] = -math.inf
 
-                # for action in range(self.action_space.n):
-                #     mean_actions_logits[i, action] = th.logsumexp(
-                #         self.beta * mean_actions_batch[all_first_actions[i].flatten() == action, :], dim=1, keepdim=True)
-                #
-                # squash_q = th.sum(th.clip(th.exp(self.beta * mean_actions_batch), 0, 1 / (1 - self.cule_bfs.gamma)), dim=1, keepdim=True)
-                # mean_actions_logits_batch = torch.zeros(self.action_space.n, 1, device=squash_q.device)
-                # mean_actions_logits_batch.scatter_add_(0, all_first_actions[i].to(squash_q.device), squash_q)
-                # mean_actions_logits_batch = torch.log(mean_actions_logits_batch.transpose(1, 0) + 1e-6)
-                # mean_actions_logits[i, :] = mean_actions_logits_batch
-
-            # for j in range(self.action_space.n):
-            #     mean_actions_by_first_action = self.alpha * mean_actions_batch[torch.nonzero(all_first_actions[i][:] == j)[:, 0], :]
-            #     mean_actions_logits[i, j] = th.logsumexp(mean_actions_by_first_action.flatten(), dim=0, keepdim=False)
-        # mean_actions_logits[i, :] = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
         depth0_logits = self.compute_value(leaves_obs=obs)[0] if self.learn_alpha else th.tensor(0)
         if th.any(th.isnan(mean_actions_logits)):
             import pdb
@@ -247,7 +242,9 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             pdb.set_trace()
             print("NaN in eval_actions:depth0_logits!!!")
             depth0_logits[th.isnan(depth0_logits)] = 0
+
         mean_actions_logits = self.alpha * mean_actions_logits + (1 - self.alpha) * depth0_logits
+        mean_actions_logits = add_exploration_logits(mean_actions_logits, self.exploration_coef)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         log_prob = distribution.log_prob(actions)
         # old_values, old_log_probs, old_dist = super(ActorCriticCnnPolicy, self).evaluate_actions(obs, actions)
