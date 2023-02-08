@@ -9,11 +9,12 @@ from stable_baselines3.common.distributions import Distribution
 
 from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
 from policies.cule_bfs import CuleBFS
+from utils import add_exploration_logits
 
 
 class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
     def __init__(self, observation_space, action_space, lr_schedule, tree_depth, gamma, step_env, buffer_size,
-                 learn_alpha, learn_beta, max_width, use_leaves_v, is_cumulative_mode, **kwargs):
+                 learn_alpha, learn_beta, max_width, use_leaves_v, is_cumulative_mode, exploration_coef, **kwargs):
         super(ActorCriticCnnTSPolicy, self).__init__(observation_space, action_space, lr_schedule, **kwargs)
         # env_name, tree_depth, env_kwargs, gamma=0.99, step_env=None
         self.cule_bfs = CuleBFS(step_env, tree_depth, gamma, self.compute_value, max_width)
@@ -26,6 +27,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         self.learn_alpha = learn_alpha
         self.learn_beta = learn_beta
         self.is_cumulative_mode = is_cumulative_mode
+        self.exploration_coef = exploration_coef
         self.alpha = th.tensor(0.5 if learn_alpha else 1.0, device=self.device)
         self.beta = th.tensor(1.0, device=self.device)
         # if max_width == -1:
@@ -85,11 +87,12 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             mean_actions_per_subtree = self.beta * mean_actions_per_subtree.reshape([self.action_space.n, -1])
         counts = counts.to(mean_actions.device).reshape([1, -1])
         if self.is_cumulative_mode:
-            mean_actions_logits = th.mean(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0)
+            mean_actions_logits = th.sum(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0) / counts
         else:
             # To obtain the mean we subtract the normalization log(#leaves)
             mean_actions_logits = th.logsumexp(mean_actions_per_subtree, dim=1, keepdim=True).transpose(1, 0) - \
                                   th.log(counts)#math.log(mean_actions_per_subtree.shape[1])
+        mean_actions_logits[counts == 0] = -math.inf
 
             # mean_actions_logits2 = torch.zeros(1, self.action_space.n, device=mean_actions.device)
             # for action in range(self.action_space.n):
@@ -130,6 +133,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             print("NaN in forward:depth0_logits!!!")
             depth0_logits[th.isnan(depth0_logits)] = 0
         mean_actions_logits = self.alpha * mean_actions_logits + (1 - self.alpha) * depth0_logits
+        mean_actions_logits = add_exploration_logits(mean_actions_logits, self.exploration_coef)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
         # DEBUG:

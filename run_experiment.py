@@ -56,6 +56,7 @@ parser.add_argument('--experiment_description', type=str, default="")
 parser.add_argument('--hash_buffer_size', type=int, default=-1)
 parser.add_argument('--use_leaves_v', type=str2bool, nargs='?', const=True, default=False)
 parser.add_argument('--is_cumulative_mode', type=str2bool, nargs='?', const=True, default=False)
+parser.add_argument('--exploration_coef', type=float, default=0.0)
 parser.add_argument('--use_warm_start', type=str2bool, nargs='?', const=True, default=False)
 
 wandb.init(config=parser.parse_args(), project="pg-tree")
@@ -101,7 +102,7 @@ else:
     policy_kwargs = {'step_env': env, 'gamma': config.gamma, 'tree_depth': config.tree_depth,
                      'buffer_size': hash_buffer_size, 'learn_alpha': config.learn_alpha,
                      'learn_beta': config.learn_beta, 'max_width': max_width, 'use_leaves_v': config.use_leaves_v,
-                     'is_cumulative_mode': config.is_cumulative_mode}
+                     'is_cumulative_mode': config.is_cumulative_mode, 'exploration_coef': config.exploration_coef}
     model = PPO(policy=ActorCriticCnnTSPolicy, env=env, verbose=1, policy_kwargs=policy_kwargs, **PPO_params)
 # learning_rate=config.learning_rate,
 

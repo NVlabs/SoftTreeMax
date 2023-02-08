@@ -27,3 +27,10 @@ def groupby_sum(value, labels) -> (torch.Tensor, torch.LongTensor):
     result = torch.zeros_like(unique_labels, dtype=torch.float).scatter_add_(0, labels, value)
     new_labels = torch.LongTensor(list(map(val_key.get, unique_labels[:, 0].tolist())))
     return result, new_labels
+
+def add_exploration_logits(logits, epsilon):
+    A = logits.shape[1]
+    probs = torch.exp(logits - torch.logsumexp(logits, dim=1, keepdim=True))
+    new_probs = (1-epsilon) * probs + epsilon/A
+    new_logits = torch.log(new_probs)
+    return  new_logits
