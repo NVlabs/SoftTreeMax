@@ -216,7 +216,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
                 counts = th.ones([1, self.action_space.n]) * mean_actions_per_subtree.shape[1]
             else:
                 mean_actions_per_subtree = th.zeros(self.action_space.n, mean_actions_batch.shape[0], mean_actions_batch.shape[1],
-                                                    device=mean_actions_batch.device) - 1e6
+                                                    device=mean_actions_batch.device) # - 1e6
                 idxes = th.arange(mean_actions_batch.shape[0])
                 counts = th.zeros(self.action_space.n)
                 v, c = th.unique(all_first_actions[i], return_counts=True)
