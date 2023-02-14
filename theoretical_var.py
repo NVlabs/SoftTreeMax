@@ -53,7 +53,7 @@ def compute_var_ratio(S, A, n_samples):
 
 
     theta, Q, P = draw_MDP()
-    # Q = np.ones_like(Q) * 0.5
+    Q = np.ones_like(Q)
     pi0, Ppi0, rho_pi0 = get_pi0()
     pi1, Ppi1, rho_pi1 = get_pi1()
     # while isinstance(rho_pi0[0], complex):
@@ -111,9 +111,11 @@ def compute_var_ratio(S, A, n_samples):
         return v_pi0 / n_samples, v_pi1 / n_samples
 
     pi0_var, pi1_var = estiamte_var()
-    pi0_bound = np.inner(rho_pi0, (pi0 ** 2).sum(axis=1))
-    pi1_bound = np.inner(rho_pi1, (pi1 ** 2).sum(axis=1))
-    return pi0_var / pi1_var, pi0_bound / pi1_bound
+    Epi0 = np.inner(rho_pi0, (pi0 ** 2).sum(axis=1))
+    Epi1 = np.inner(rho_pi1, (pi1 ** 2).sum(axis=1))
+    Vpi0 = np.inner(rho_pi0, np.multiply(pi0, (pi0 - Epi0) ** 2).sum(axis=1))
+    Vpi1 = np.inner(rho_pi1, np.multiply(pi1, (pi1 - Epi1) ** 2).sum(axis=1))
+    return pi0_var / pi1_var, Vpi0 / Vpi1
 
 
 n_samples = 100
@@ -124,17 +126,17 @@ S_fixed = 10
 A_max = 30
 A_vec = [i for i in range(3, A_max)]
 for A in A_vec:
-    A_res.append(compute_var_ratio(S_fixed, A, n_samples)[0])
+    A_res.append(compute_var_ratio(S_fixed, A, n_samples))
     print('A={}/{}'.format(A, A_max))
 A_fixed = 10
 S_max = 30
 S_vec = [i for i in range(3, S_max)]
 for S in S_vec:
-    S_res.append(compute_var_ratio(S, A_fixed, n_samples)[0])
+    S_res.append(compute_var_ratio(S, A_fixed, n_samples))
     print('S={}/{}'.format(S, S_max))
 
 for S, A in zip(S_vec, A_vec):
-    SA_res.append(compute_var_ratio(S, A, n_samples)[0])
+    SA_res.append(compute_var_ratio(S, A, n_samples))
     print('S={}/{}'.format(S, S_max))
 
 import matplotlib.pyplot as plt
