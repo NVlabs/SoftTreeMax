@@ -59,6 +59,7 @@ parser.add_argument('--hash_buffer_size', type=int, default=-1)
 parser.add_argument('--n_envs', type=int, default=128)
 parser.add_argument('--n_envs_timesteps', type=int, default=5000000)
 parser.add_argument('--use_leaves_v', type=str2bool, nargs='?', const=True, default=False)
+parser.add_argument('--is_cumulative_mode', type=str2bool, nargs='?', const=True, default=False)
 
 
 

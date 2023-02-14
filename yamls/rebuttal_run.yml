@@ -1,0 +1,27 @@
+program: run_experiment.py
+method: grid
+metric:
+  goal: maximize
+  name: episodic_reward
+parameters:
+  experiment_type:
+    values: [ "Paper_main" ]
+  experiment_description:
+    values: [ "Cumulative and norm for rebuttal" ]
+  tree_depth:
+    values: [ 1, 2, 3]
+  seed:
+    values: [1, 2, 3]
+  max_width:
+    values: [-1]
+  is_cumulative_mode:
+    values: [False, True]
+  env_name:
+    values: ['AsteroidsNoFrameskip-v4',
+              'BreakoutNoFrameskip-v4',
+              'GopherNoFrameskip-v4',
+              'KrullNoFrameskip-v4',
+              'KungFuMasterNoFrameskip-v4',
+              'NameThisGameNoFrameskip-v4',
+              'PhoenixNoFrameskip-v4',
+              'VideoPinballNoFrameskip-v4']

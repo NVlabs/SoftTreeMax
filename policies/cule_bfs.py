@@ -243,14 +243,17 @@ class CuleBFS():
             # for i in range(4):
             #     plt.imshow(state_clone[i][0].cpu())
             #     plt.show()
+            # frame stacking
             new_obs = new_obs.squeeze(dim=-1).unsqueeze(dim=1).to(self.device)
             state_clone = self.replicate_state(state_clone)
             state_clone = torch.cat((state_clone[:, 1: self.n_frame_stack, :, :], new_obs), dim=1)
             torch.cuda.synchronize()
 
-            # TODO: make this work with estimate value instead of rewards
+            # shrink the number of envs to max_width before expanding them again
             if max_width != -1 and depth != tree_depth - 1 and num_envs > max_width:
                 leaves_vals = self.compute_val_func(state_clone)[0].max(dim=1).values
+                #TODO: condition the following line on reward clipping wrapper and compute cumulative clipped reward
+                # inside the depth loop
                 pi_logit = torch.sign(depth_env.rewards[:num_envs]) + self.gamma**(depth + 1) * leaves_vals.to(depth_env.device)
                 try:
                     top_indexes = torch.multinomial(torch.softmax(torch.clip(pi_logit, -1e6, 1e6), 0), max_width)
