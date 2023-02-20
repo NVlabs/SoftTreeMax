@@ -1,10 +1,9 @@
+# Built-in
 from typing import Tuple
 
-import torch
+# Externals
 import torch as th
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
-from stable_baselines3.common.distributions import Distribution
-from policies.cule_bfs import CuleBFS
 
 
 class ActorCriticCnnPolicyDepth0(ActorCriticCnnPolicy):

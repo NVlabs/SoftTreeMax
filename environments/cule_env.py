@@ -1,12 +1,14 @@
+# Built-in
 from collections import deque
+import math
+
+# External
 import torch
-import cv2  # Note that importing cv2 before torch may cause segfaults?
 from torchcule.atari import Env as AtariEnv
 from torchcule.atari import Rom as AtariRom
 import gym
 import numpy as np
 from gym import spaces
-import math
 
 
 class CuleEnv(gym.Env):
@@ -33,7 +35,7 @@ class CuleEnv(gym.Env):
         orig_shape = self.env.observation_space.shape
         self.observation_space = gym.spaces.Box(0, 255, (orig_shape[0] * n_frame_stack, orig_shape[1], orig_shape[2]),
                                                 np.uint8)
-        self.action_space = spaces.Discrete(len(actions))  # self.gpu_env.action_space
+        self.action_space = spaces.Discrete(len(actions))
 
     def _reset_buffer(self):
         for _ in range(self.n_frame_stack):
@@ -62,15 +64,11 @@ class CuleEnv(gym.Env):
             # Perform up to 30 random no-ops before starting
             noops = np.random.randint(self.noop_max + 1)
             obs = self.env.reset(initial_steps=noops, verbose=1)
-            self.env.lives[0] = 5  # Assaf: reset doesn't handle this?
+            self.env.lives[0] = 5
             obs = obs[0, :, :, 0].to(self.device)
-
-        # obs = obs / 255
         self.last_frame = obs
         self.state_buffer.append(obs)
-        # self.env.step(torch.tensor([1]))
-        self.lives = self.env.lives.item()  # TODO: update for other games
-        # self.lives = None # self.ale.lives() #TODO: update for other games
+        self.lives = self.env.lives.item()
         return torch.stack(list(self.state_buffer), 0).cpu().numpy()
 
     def step(self, action):
@@ -81,14 +79,14 @@ class CuleEnv(gym.Env):
             reward = torch.sign(reward)
         if self.lives is None:
             self.lives = self.env.lives.item()
-        obs = obs[0, :, :, 0].to(self.device) # / 255
+        obs = obs[0, :, :, 0].to(self.device)
         self.state_buffer.append(obs)
         self.last_frame = obs
         # Detect loss of life as terminal in training mode
         lives = info['ale.lives'][0].item()
         if self.training:
             if lives < self.lives and lives > 0:  # Lives > 0 for Q*bert
-                self.life_termination = True  # not done  # Only set flag when not truly done TODO: Why?
+                self.life_termination = True  # not done  # Only set flag when not truly done
                 done = True
         self.lives = lives
         # Return state, reward, done
@@ -102,10 +100,8 @@ class CuleEnv(gym.Env):
     def eval(self):
         self.training = False
 
-    def render(self):
-        # TODO: adapt to cule
-        cv2.imshow('screen', self.last_frame)
-        cv2.waitKey(1)
+    def render(self, mode='human'):
+        raise NotImplementedError
 
     def close(self):
-        cv2.destroyAllWindows()
+        raise NotImplementedError

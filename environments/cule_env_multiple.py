@@ -28,7 +28,6 @@ class CuleEnvMultiple(VecEnv):
         self.noop_max = noop_max
         self.clip_reward = clip_reward
         self.fire_reset = fire_reset
-
         # Stable baselines requirements
         self.reward_range = (-math.inf, math.inf)
         self.metadata = {"render.modes": ["human", "rgb_array"]}
@@ -47,15 +46,11 @@ class CuleEnvMultiple(VecEnv):
         # Perform up to 30 random no-ops before starting
         noops = np.random.randint(self.noop_max + 1)
         obs = self.env.reset(initial_steps=noops, verbose=1)
-        self.env.lives[0] = 5  # Assaf: reset doesn't handle this?
+        self.env.lives[0] = 5
         obs = obs.reshape((self.num_envs, 84, 84)).to(self.device)
-
-        # obs = obs / 255
         self.last_frame = obs
         self.state_buffer.append(obs)
-        # self.env.step(torch.tensor([1]))
-        self.lives = self.env.lives.cpu().numpy()  # TODO: update for other games
-        # self.lives = None # self.ale.lives() #TODO: update for other games
+        self.lives = self.env.lives.cpu().numpy()
         return torch.stack(list(self.state_buffer), 1).cpu().numpy()
 
     def step(self, action):
@@ -87,12 +82,10 @@ class CuleEnvMultiple(VecEnv):
         self.training = False
 
     def render(self):
-        # TODO: adapt to cule
-        cv2.imshow('screen', self.last_frame)
-        cv2.waitKey(1)
+        raise NotImplementedError
 
     def close(self):
-        cv2.destroyAllWindows()
+        raise NotImplementedError
 
     def step_async(self, actions: np.ndarray) -> None:
         """

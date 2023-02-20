@@ -1,10 +1,10 @@
-import torch
+# Externals
+import torch as th
 from torchcule.atari import Env as AtariEnv
 from torchcule.atari import Rom as AtariRom
 from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 
 CROSSOVER_DICT = {'MsPacman': 1, 'Breakout': 2, 'Assault': 2, 'Krull': 2, 'Pong': 1, 'Boxing': 1, 'Asteroids': 1}
-
 
 class CuleBFS():
     def __init__(self, step_env, tree_depth, gamma=0.99, compute_val_func=None, max_width=-1):
@@ -31,11 +31,11 @@ class CuleBFS():
         num_envs = self.min_actions_size ** tree_depth if max_width == -1 \
             else min(max_width*self.min_actions_size, self.min_actions_size ** tree_depth)
 
-        self.gpu_env = self.get_env(num_envs, device=torch.device("cuda", 0))
+        self.gpu_env = self.get_env(num_envs, device=th.device("cuda", 0))
         if self.crossover_level == -1:
             self.cpu_env = self.gpu_env
         else:
-            self.cpu_env = self.get_env(num_envs, device=torch.device("cpu"))
+            self.cpu_env = self.get_env(num_envs, device=th.device("cpu"))
         if type(step_env) == DummyVecEnv:
             self.step_env = step_env.envs
         else:
@@ -90,7 +90,6 @@ class CuleBFS():
         cpu_env.observations1.zero_()
         cpu_env.observations2.zero_()
         cpu_env.done.zero_()
-
         # Make sure all actions in the backend are completed
         # Be careful making calls to pytorch functions between cule synchronization calls
         if gpu_env.is_cuda:
@@ -135,34 +134,24 @@ class CuleBFS():
                 if frame == (depth_env.frameskip - 1):
                     depth_env.generate_frames(depth_env.rescale, False, depth_env.num_channels,
                                               depth_env.observations1[:num_envs].data_ptr())
-            new_obs = torch.max(depth_env.observations1[:num_envs], depth_env.observations2[:num_envs])
-            # new_obs = new_obs / 255
-            # import matplotlib.pyplot as plt
-            # for i in range(4):
-            #     plt.imshow(state_clone[i][0].cpu())
-            #     plt.show()
+            new_obs = th.max(depth_env.observations1[:num_envs], depth_env.observations2[:num_envs])
             new_obs = new_obs.squeeze(dim=-1).unsqueeze(dim=1).to(self.device)
             state_clone = self.replicate_state(state_clone)
-            state_clone = torch.cat((state_clone[:, 1: self.n_frame_stack, :, :], new_obs), dim=1)
-            # obs = obs[:num_envs].to(gpu_env.device).permute((0, 3, 1, 2))
+            state_clone = th.cat((state_clone[:, 1: self.n_frame_stack, :, :], new_obs), dim=1)
             # Waits for everything to finish running
-            torch.cuda.synchronize()
+            th.cuda.synchronize()
 
         # Make sure all actions in the backend are completed
         if depth_env.is_cuda:
             depth_env.sync_this_stream()
-            torch.cuda.current_stream().synchronize()
-
-        # Form observations using max of last 2 frame_buffers
-        # torch.max(depth_env.observations1[:num_envs], depth_env.observations2[:num_envs], out=depth_env.observations1[:num_envs])
-
+            th.cuda.current_stream().synchronize()
         # Waits for everything to finish running
-        torch.cuda.synchronize()
+        th.cuda.synchronize()
 
         rewards = relevant_env.rewards[:num_envs].to(gpu_env.device)
         # TODO: Fix for depths > 1
         if self.clip_reward:
-            rewards = torch.sign(rewards)
+            rewards = th.sign(rewards)
         cpu_env.set_size(1)
         gpu_env.set_size(1)
         return state_clone, rewards
@@ -176,7 +165,7 @@ class CuleBFS():
         gpu_env = self.gpu_env
         step_env = self.step_env
 
-        first_action = torch.arange(0, cpu_env.action_space.n, device=cpu_env.device).unsqueeze(1)
+        first_action = th.arange(0, cpu_env.action_space.n, device=cpu_env.device).unsqueeze(1)
 
         # Set device environment root state before calling step function
         cpu_env.states[0] = step_env.states[0]
@@ -237,32 +226,27 @@ class CuleBFS():
                 if frame == (depth_env.frameskip - 1):
                     depth_env.generate_frames(depth_env.rescale, False, depth_env.num_channels,
                                               depth_env.observations1[:num_envs].data_ptr())
-            new_obs = torch.max(depth_env.observations1[:num_envs], depth_env.observations2[:num_envs])
-            # new_obs = new_obs / 255
-            # import matplotlib.pyplot as plt
-            # for i in range(4):
-            #     plt.imshow(state_clone[i][0].cpu())
-            #     plt.show()
+            new_obs = th.max(depth_env.observations1[:num_envs], depth_env.observations2[:num_envs])
             # frame stacking
             new_obs = new_obs.squeeze(dim=-1).unsqueeze(dim=1).to(self.device)
             state_clone = self.replicate_state(state_clone)
-            state_clone = torch.cat((state_clone[:, 1: self.n_frame_stack, :, :], new_obs), dim=1)
-            torch.cuda.synchronize()
+            state_clone = th.cat((state_clone[:, 1: self.n_frame_stack, :, :], new_obs), dim=1)
+            th.cuda.synchronize()
 
             # shrink the number of envs to max_width before expanding them again
             if max_width != -1 and depth != tree_depth - 1 and num_envs > max_width:
                 leaves_vals = self.compute_val_func(state_clone)[0].max(dim=1).values
                 #TODO: condition the following line on reward clipping wrapper and compute cumulative clipped reward
                 # inside the depth loop
-                pi_logit = torch.sign(depth_env.rewards[:num_envs]) + self.gamma**(depth + 1) * leaves_vals.to(depth_env.device)
+                pi_logit = th.sign(depth_env.rewards[:num_envs]) + self.gamma**(depth + 1) * leaves_vals.to(depth_env.device)
                 try:
-                    top_indexes = torch.multinomial(torch.softmax(torch.clip(pi_logit, -1e6, 1e6), 0), max_width)
+                    top_indexes = th.multinomial(th.softmax(th.clip(pi_logit, -1e6, 1e6), 0), max_width)
                 except:
                     print("Bug in pi_logit", pi_logit)
-                    top_indexes = torch.argsort(pi_logit, descending=True)[:max_width]
+                    top_indexes = th.argsort(pi_logit, descending=True)[:max_width]
                 first_action = first_action[top_indexes]
                 state_clone = state_clone[top_indexes, :]
-                if len(torch.unique(first_action)) == 1:
+                if len(th.unique(first_action)) == 1:
                     effective_depth = depth
                 depth_env.rewards[:max_width] = depth_env.rewards[top_indexes]
                 depth_env.observations1[:max_width] = depth_env.observations1[top_indexes]
@@ -278,18 +262,14 @@ class CuleBFS():
         # Make sure all actions in the backend are completed
         if depth_env.is_cuda:
             depth_env.sync_this_stream()
-            torch.cuda.current_stream().synchronize()
-
-        # Form observations using max of last 2 frame_buffers
-        # torch.max(depth_env.observations1[:num_envs], depth_env.observations2[:num_envs], out=depth_env.observations1[:num_envs])
-
+            th.cuda.current_stream().synchronize()
         # Waits for everything to finish running
-        torch.cuda.synchronize()
+        th.cuda.synchronize()
 
         rewards = relevant_env.rewards[:num_envs].to(gpu_env.device)
         # TODO: Fix for depths > 1
         if self.clip_reward:
-            rewards = torch.sign(rewards)
+            rewards = th.sign(rewards)
         cpu_env.set_size(1)
         gpu_env.set_size(1)
         return state_clone, rewards, first_action
@@ -308,7 +288,7 @@ class CuleBFS():
         target_env.rewards.copy_(source_env.rewards)
         target_env.done.copy_(source_env.done)
         target_env.frame_states.copy_(source_env.frame_states)
-        torch.cuda.synchronize()
+        th.cuda.synchronize()
         target_env.update_frame_states()
 
     def new_expand(self, env, num_envs):
@@ -319,12 +299,8 @@ class CuleBFS():
         done = env.done[:env.size()].clone()
         frame_states = env.frame_states[:env.size()].clone()
         lives = env.lives[:env.size()].clone()
-
         env.set_size(num_envs)
-
-        #env_indices = torch.arange(num_envs, device=env.device) // int(num_envs / self.min_actions_size)
-        env_indices = torch.arange(num_envs, device=env.device) // int(num_envs / orig_size)
-
+        env_indices = th.arange(num_envs, device=env.device) // int(num_envs / orig_size)
         env.states[:env.size()] = states[env_indices]
         env.ram[:env.size()] = ram[env_indices]
         env.rewards[:env.size()] = rewards[env_indices]
