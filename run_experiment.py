@@ -17,9 +17,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 from stable_baselines3.common.utils import get_device, get_linear_fn
 from stable_baselines3.common.save_util import load_from_zip_file
-from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from environments.cule_env import CuleEnv
-from stable_baselines3.common.env_util import make_vec_env
 
 # from wandb.integration.sb3 import WandbCallback
 if sys.gettrace() is not None:
@@ -70,22 +68,8 @@ env_kwargs = dict(env_name=config.env_name, color_mode='gray', repeat_prob=0.0, 
 fire_reset = config.env_name not in ['AsterixNoFrameskip-v4', 'CrazyClimberNoFrameskip-v4',
                                      'FreewayNoFrameskip-v4', 'MsPacmanNoFrameskip-v4',
                                      'SkiingNoFrameskip-v4', 'TutankhamNoFrameskip-v4']
-if config.use_cule:
-    env = CuleEnv(env_kwargs=env_kwargs, device=get_device(), n_frame_stack=config.n_frame_stack,
-                  clip_reward=config.clip_reward, noop_max=config.noop_max, fire_reset=fire_reset)
-    # env = make_vec_env(CuleEnv, n_envs=8, env_kwargs={'env_kwargs': env_kwargs, 'device': get_device(),
-    #                                             'n_frame_stack':config.n_frame_stack})
-else:
-    orig_env = gym.make(config.env_name)
-    # rew_normalization_factor, obs_normalization_factor = env_normalization_table.get(config.env_name, (1.0, 1.0))
-    # env = ClipRewardEnv(orig_env, rew_normalization_factor) #contains functions needed for DFS
-    # env = WarpFrame(orig_env)
-    env = MaxAndSkipEnv(orig_env, skip=4)
-    # env = FireResetEnv(env)
-    if config.warp_frame:
-        env = WarpFrame(env)
-    if config.n_frame_stack > 1:
-        env = FrameStack(env, config.n_frame_stack)
+env = CuleEnv(env_kwargs=env_kwargs, device=get_device(), n_frame_stack=config.n_frame_stack,
+              clip_reward=config.clip_reward, noop_max=config.noop_max, fire_reset=fire_reset)
 
 print("Environment: ", config.env_name, "Num actions: ", env.action_space.n)
 
