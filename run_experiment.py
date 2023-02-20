@@ -2,6 +2,9 @@ import sys
 
 import torch as th
 
+# For NGC runs, TODO: Remove this in final version
+sys.path.append('../stable-baselines3/')
+
 from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
 from callbacks import WandbTrainingCallback
 from policies.actor_critic_ts import ActorCriticCnnTSPolicy
