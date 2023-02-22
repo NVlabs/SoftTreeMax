@@ -68,5 +68,5 @@ def create_parser():
     parser.add_argument("--use_leaves_v", type=str2bool, nargs="?", const=True, default=False)
     parser.add_argument("--is_cumulative_mode", type=str2bool, nargs="?", const=True, default=False)
     parser.add_argument("--regularization", type=float, default=0.001)
-    parser.add_argument("--n_envs", type=int, default=1)
+    parser.add_argument("--n_envs", type=int, default=256)
     return parser

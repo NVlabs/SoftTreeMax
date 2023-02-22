@@ -32,7 +32,6 @@ def main():
     wandb.init(config=parser.parse_args(), project="pg-tree")
     config = wandb.config
 
-    # TODO: decide " or " for all files
     # Setting environment
     env_kwargs = dict(env_name=config.env_name, color_mode="gray", repeat_prob=0.0, rescale=True, episodic_life=True,
                       frameskip=4)

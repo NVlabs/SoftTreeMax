@@ -5,11 +5,11 @@ metric:
   name: episodic_reward
 parameters:
   experiment_type:
-    values: [ "Paper_main" ]
+    values: [ "Example sweep" ]
   experiment_description:
-    values: [ "Cumulative and norm for rebuttal" ]
+    values: [ "An example of sweep structure" ]
   tree_depth:
-    values: [ 1, 2, 3]
+    values: [0, 1, 2, 3]
   seed:
     values: [1, 2, 3]
   max_width:

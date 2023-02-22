@@ -52,7 +52,6 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             self.obs2leaves_dict[hash_obs] = leaves_observations, rewards, first_action
         self.obs2timestep_dict[hash_obs] = self.time_step
         self.timestep2obs_dict[self.time_step] = hash_obs
-        # TODO: Check if more efficient extracting features from obs and leaves_observation simultaneously
         # Preprocess the observation if needed
         val_coef = self.cule_bfs.gamma ** self.cule_bfs.max_depth
         if self.use_leaves_v:
