@@ -15,9 +15,9 @@ class CuleEnv(gym.Env):
     def __init__(self, device, env_kwargs, n_frame_stack=4, noop_max=30, clip_reward=True, fire_reset=True):
         self.device = device
         self.env_kwargs = env_kwargs
-        cart = AtariRom(env_kwargs['env_name'])
+        cart = AtariRom(env_kwargs["env_name"])
         actions = cart.minimal_actions()
-        self.env = AtariEnv(num_envs=1, device=torch.device('cpu'), **env_kwargs)
+        self.env = AtariEnv(num_envs=1, device=torch.device("cpu"), **env_kwargs)
         super(AtariEnv, self.env).reset(0)
         self.env.reset(initial_steps=1, verbose=1)
         self.lives = 0  # Life counter (used in DeepMind training)
@@ -83,7 +83,7 @@ class CuleEnv(gym.Env):
         self.state_buffer.append(obs)
         self.last_frame = obs
         # Detect loss of life as terminal in training mode
-        lives = info['ale.lives'][0].item()
+        lives = info["ale.lives"][0].item()
         if self.training:
             if lives < self.lives and lives > 0:  # Lives > 0 for Q*bert
                 self.life_termination = True  # not done  # Only set flag when not truly done
@@ -100,7 +100,7 @@ class CuleEnv(gym.Env):
     def eval(self):
         self.training = False
 
-    def render(self, mode='human'):
+    def render(self, mode="human"):
         raise NotImplementedError
 
     def close(self):

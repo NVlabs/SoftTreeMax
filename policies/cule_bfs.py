@@ -4,7 +4,7 @@ from torchcule.atari import Env as AtariEnv
 from torchcule.atari import Rom as AtariRom
 from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 
-CROSSOVER_DICT = {'MsPacman': 1, 'Breakout': 2, 'Assault': 2, 'Krull': 2, 'Pong': 1, 'Boxing': 1, 'Asteroids': 1}
+CROSSOVER_DICT = {"MsPacman": 1, "Breakout": 2, "Assault": 2, "Krull": 2, "Pong": 1, "Boxing": 1, "Asteroids": 1}
 
 class CuleBFS():
     def __init__(self, step_env, tree_depth, gamma=0.99, compute_val_func=None, max_width=-1):
@@ -19,13 +19,13 @@ class CuleBFS():
         self.compute_val_func = compute_val_func
         self.crossover_level = 1
         for k, v in CROSSOVER_DICT.items():
-            if k in self.env_kwargs['env_name']:
+            if k in self.env_kwargs["env_name"]:
                 self.crossover_level = v
                 break
         self.clip_reward = step_env.clip_reward
         self.gamma = gamma
         self.max_depth = tree_depth
-        cart = AtariRom(self.env_kwargs['env_name'])
+        cart = AtariRom(self.env_kwargs["env_name"])
         self.min_actions = cart.minimal_actions()
         self.min_actions_size = len(self.min_actions)
         num_envs = self.min_actions_size ** tree_depth if max_width == -1 \

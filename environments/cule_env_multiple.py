@@ -15,7 +15,7 @@ class CuleEnvMultiple(VecEnv):
                  n_envs=1):
         self.device = device
         self.env_kwargs = env_kwargs
-        cart = AtariRom(env_kwargs['env_name'])
+        cart = AtariRom(env_kwargs["env_name"])
         self.num_envs = n_envs
         actions = cart.minimal_actions()
         self.env = AtariEnv(num_envs=n_envs, device=device, **env_kwargs)
@@ -56,7 +56,7 @@ class CuleEnvMultiple(VecEnv):
     def step(self, action):
         # Repeat action 4 times, max pool over last 2 frames
         obs, reward, done, info = self.env.step(torch.tensor(action, device=self.env.device))
-        infos = [{'ale.lives': info['ale.lives'][i]} for i in range(len(info['ale.lives']))]
+        infos = [{"ale.lives": info["ale.lives"][i]} for i in range(len(info["ale.lives"]))]
         for i in range(len(infos)):
             infos[i]["orig_reward"] = reward[i].cpu().numpy()
             infos[i]["done"] = done[i].cpu().numpy()
@@ -68,7 +68,7 @@ class CuleEnvMultiple(VecEnv):
         self.state_buffer.append(obs)
         self.last_frame = obs
         # Detect loss of life as terminal in training mode
-        self.lives = info['ale.lives'].cpu().numpy()
+        self.lives = info["ale.lives"].cpu().numpy()
         # Return state, reward, done
         return torch.stack(list(self.state_buffer), 1).cpu().numpy(), reward.cpu().numpy(), \
                done.type(torch.float).cpu().numpy(), infos
@@ -108,7 +108,7 @@ class CuleEnvMultiple(VecEnv):
 
     def close(self) -> None:
         """
-        Clean up the environment's resources.
+        Clean up the environment resources.
         """
         raise NotImplementedError()
 
@@ -118,7 +118,7 @@ class CuleEnvMultiple(VecEnv):
 
         :param attr_name: The name of the attribute whose value to return
         :param indices: Indices of envs to get attribute from
-        :return: List of values of 'attr_name' in all environments
+        :return: List of values of "attr_name" in all environments
         """
         raise NotImplementedError()
 
@@ -141,7 +141,7 @@ class CuleEnvMultiple(VecEnv):
         :param indices: Indices of envs whose method to call
         :param method_args: Any positional arguments to provide in the call
         :param method_kwargs: Any keyword arguments to provide in the call
-        :return: List of items returned by the environment's method call
+        :return: List of items returned by the environment method call
         """
         raise NotImplementedError()
 
