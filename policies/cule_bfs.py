@@ -6,6 +6,7 @@ from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 
 CROSSOVER_DICT = {"MsPacman": 1, "Breakout": 2, "Assault": 2, "Krull": 2, "Pong": 1, "Boxing": 1, "Asteroids": 1}
 
+
 class CuleBFS():
     def __init__(self, step_env, tree_depth, gamma=0.99, compute_val_func=None, max_width=-1):
         if type(step_env) == DummyVecEnv:
