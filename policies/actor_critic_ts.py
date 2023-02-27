@@ -62,7 +62,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
             latent_pi, value_root = self.compute_value(leaves_obs=leaves_observations, root_obs=obs)
             value_root = (val_coef * value_root + rewards.reshape([-1, 1])).max()
         else:
-            latent_pi, value_root = self.compute_value2(leaves_obs=leaves_observations, root_obs=obs)
+            latent_pi, value_root = self.compute_value_with_root(leaves_obs=leaves_observations, root_obs=obs)
         mean_actions = val_coef * self.action_net(latent_pi) + rewards.reshape([-1, 1])
         if self.cule_bfs.max_width == -1:
             mean_actions_per_subtree = self.beta * mean_actions.reshape([self.action_space.n, -1])
@@ -196,7 +196,7 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
     def hash_obs(self, obs):
         return (obs[:, -2:, :, :].int()).view(obs.shape[0], -1).sum(dim=1)
 
-    def compute_value2(self, leaves_obs, root_obs=None):
+    def compute_value_with_root(self, leaves_obs, root_obs=None):
         if root_obs is None:
             shared_features = self.mlp_extractor.shared_net(self.extract_features(leaves_obs))
             return self.action_net(self.mlp_extractor.policy_net(shared_features)), None
