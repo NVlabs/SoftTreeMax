@@ -4,6 +4,7 @@ import math
 
 # Externals
 import torch as th
+from stable_baselines3.common.utils import get_device
 
 # Internals
 from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
@@ -23,10 +24,13 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         self.buffer_size = buffer_size
         self.learn_alpha = learn_alpha
         self.learn_beta = learn_beta
+        self.tree_depth = tree_depth
+        self.max_width = max_width
         self.is_cumulative_mode = is_cumulative_mode
         self.regularization = regularization
         self.alpha = th.tensor(0.5 if learn_alpha else 1.0, device=self.device)
         self.beta = th.tensor(1.0, device=self.device)
+        self.lr_schedule = lr_schedule
         if self.learn_alpha:
             self.alpha = th.nn.Parameter(self.alpha)
             self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
@@ -82,21 +86,16 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         mean_actions_logits[counts == 0] = -math.inf
         depth0_logits = self.compute_value(leaves_obs=obs)[0] if self.learn_alpha else th.tensor(0)
         if th.any(th.isnan(mean_actions_logits)):
-            import pdb
-            pdb.set_trace()
-            print("NaN in forward:mean_actions_logits!!!")
+            print("NaN in forward:mean_actions_logits.")
             mean_actions_logits[th.isnan(mean_actions_logits)] = 0
         if th.any(th.isnan(depth0_logits)):
-            import pdb
-            pdb.set_trace()
-            print("NaN in forward:depth0_logits!!!")
+            print("NaN in forward:depth0_logits.")
             depth0_logits[th.isnan(depth0_logits)] = 0
         mean_actions_logits = self.alpha * mean_actions_logits + (1 - self.alpha) * depth0_logits
         mean_actions_logits = add_regularization_logits(mean_actions_logits, self.regularization)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
-        # TODO: handle fire
         if self.time_step - self.buffer_size in self.timestep2obs_dict:
             del self.obs2leaves_dict[self.timestep2obs_dict[self.time_step - self.buffer_size]]
             del self.obs2timestep_dict[self.timestep2obs_dict[self.time_step - self.buffer_size]]
@@ -153,7 +152,6 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         subtree_width = self.action_space.n ** self.cule_bfs.max_depth
         if self.cule_bfs.max_width != -1:
             subtree_width = min(subtree_width, self.cule_bfs.max_width*self.action_space.n)
-        # TODO: Optimize here
         for i in range(batch_size):
             mean_actions_batch = mean_actions[subtree_width * i:subtree_width * (i + 1)]
             if self.use_leaves_v:
@@ -218,3 +216,55 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         latent_vf_root = self.mlp_extractor.value_net(shared_features)
         value_root = self.value_net(latent_vf_root)
         return latent_pi, value_root
+
+    def save(self, path: str) -> None:
+        """
+        Save model to a given location.
+
+        :param path: (str)
+        """
+        time_step = self.time_step,
+        th.save({"state_dict": self.state_dict(), "data": self._get_data(),
+                 "alpha": self.alpha, "beta": self.beta, "time_step": self.time_step}, path)
+
+    def _get_data(self):
+        """
+        Get data that need to be saved in order to re-create the model.
+        This corresponds to the arguments of the constructor.
+
+        :return: (Dict[str, Any])
+        """
+        return dict(
+            observation_space=self.observation_space,
+            action_space=self.action_space,
+            tree_depth=self.tree_depth,
+            gamma=self.cule_bfs.gamma,
+            # Passed to the constructor by child class
+            # squash_output=self.squash_output,
+            # features_extractor=self.features_extractor
+            buffer_size=self.buffer_size,
+            learn_alpha=self.learn_alpha,
+            learn_beta=self.learn_beta,
+            is_cumulative_mode=self.is_cumulative_mode,
+            regularization=self.regularization,
+            max_width=self.max_width,
+            use_leaves_v=self.use_leaves_v,
+        )
+
+    @classmethod
+    def load(cls, path, device="auto", env=None, lr_schedule=None):
+        """
+        Load model from path.
+
+        :param path: (str)
+        :param device: (Union[th.device, str]) Device on which the policy should be loaded.
+        :return: (BasePolicy)
+        """
+        device = get_device(device)
+        saved_variables = th.load(path, map_location=device)
+        # Create policy object
+        model = cls(**saved_variables["data"], lr_schedule=lr_schedule, step_env=env)  # pytype: disable=not-instantiable
+        # Load weights
+        model.load_state_dict(saved_variables["state_dict"])
+        model.to(device)
+        return model

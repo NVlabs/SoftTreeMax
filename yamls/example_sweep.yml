@@ -17,11 +17,11 @@ parameters:
   is_cumulative_mode:
     values: [False, True]
   env_name:
-    values: ['AsteroidsNoFrameskip-v4',
-              'BreakoutNoFrameskip-v4',
-              'GopherNoFrameskip-v4',
-              'KrullNoFrameskip-v4',
-              'KungFuMasterNoFrameskip-v4',
-              'NameThisGameNoFrameskip-v4',
-              'PhoenixNoFrameskip-v4',
-              'VideoPinballNoFrameskip-v4']
+    values: ["AsteroidsNoFrameskip-v4",
+              "BreakoutNoFrameskip-v4",
+              "GopherNoFrameskip-v4",
+              "KrullNoFrameskip-v4",
+              "KungFuMasterNoFrameskip-v4",
+              "NameThisGameNoFrameskip-v4",
+              "PhoenixNoFrameskip-v4",
+              "VideoPinballNoFrameskip-v4"]
