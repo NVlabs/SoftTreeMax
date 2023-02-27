@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.backends.cudnn
 import numpy as np
-
+import random
 
 def set_seed(seed):
     """for reproducibility
