@@ -51,9 +51,6 @@ class WandbTrainingCallback(BaseCallback):
                 grad_var += torch.mean(torch.var(torch.stack(param_value), dim=0)).item()
                 self.locals["self"].policy.gradients_history[param_name] = param_value[-100:]
             wandb.log({"train\\policy_weights_grad_var": grad_var}, step=cur_step)
-            if hasattr(self.locals["self"].policy, "cule_bfs"):
-                wandb.log({"effective depth": np.mean(self.locals["self"].policy.cule_bfs.effective_depth)}, step=cur_step)
-                self.locals["self"].policy.cule_bfs.effective_depth = []
             for key, val in self.locals["self"].logger.name_to_value.items():
                 wandb.log({key: val}, step=cur_step)
             self.total_rewards = 0

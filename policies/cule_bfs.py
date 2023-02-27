@@ -51,7 +51,6 @@ class CuleBFS():
         self.num_envs = 1
         self.trunc_count = 0
         self.max_width = max_width
-        self.effective_depth = []
 
     def get_env(self, num_envs, device):
         env = AtariEnv(num_envs=num_envs, device=device, action_set=self.min_actions, **self.env_kwargs)
@@ -180,7 +179,6 @@ class CuleBFS():
         depth_actions_initial = self.cpu_actions
         num_envs = 1
         relevant_env = depth_env if tree_depth > 0 else step_env
-        effective_depth = tree_depth
         for depth in range(tree_depth):
             # By level 3 there should be enough states to warrant moving to the GPU.
             # We do this by copying all of the relevant state information between the
@@ -237,8 +235,6 @@ class CuleBFS():
                     top_indexes = th.argsort(pi_logit, descending=True)[:max_width]
                 first_action = first_action[top_indexes]
                 state_clone = state_clone[top_indexes, :]
-                if len(th.unique(first_action)) == 1:
-                    effective_depth = depth
                 depth_env.rewards[:max_width] = depth_env.rewards[top_indexes]
                 depth_env.observations1[:max_width] = depth_env.observations1[top_indexes]
                 depth_env.observations2[:max_width] = depth_env.observations2[top_indexes]
@@ -249,7 +245,6 @@ class CuleBFS():
                 depth_env.lives[:max_width] = depth_env.lives[top_indexes]
                 depth_env.set_size(max_width)
 
-        self.effective_depth.append(effective_depth)
         # Make sure all actions in the backend are completed
         if depth_env.is_cuda:
             depth_env.sync_this_stream()
@@ -297,3 +292,6 @@ class CuleBFS():
         env.done[:env.size()] = done[env_indices]
         env.frame_states[:env.size()] = frame_states[env_indices]
         env.lives[:env.size()] = lives[env_indices]
+
+    def bfs_merged(self, state, tree_depth):
+        pass
