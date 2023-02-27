@@ -47,7 +47,7 @@ def main():
                       clip_reward=config.clip_reward, noop_max=config.noop_max, fire_reset=fire_reset)
     print("Environment:", config.env_name, "Num actions:", env.action_space.n, "Tree depth:", config.tree_depth)
 
-    # Setting PPO parameters
+    # Setting PPO parameters to the original paper defaults
     ppo_def_lr = get_linear_fn(config.learning_rate, 0, 1)
     ppo_def_clip = get_linear_fn(0.1, 0, 1)
     PPO_params = {"learning_rate": ppo_def_lr, "n_epochs": 3, "gamma": 0.99, "n_steps": 128, "batch_size": 32,
@@ -56,8 +56,7 @@ def main():
     # Setting PPO models
     if config.tree_depth == 0:
         model = PPO(policy=ActorCriticCnnPolicyDepth0, env=env, verbose=2, **PPO_params)
-    else:
-        # Hash buffer saves previous states and their trees for reuse in evaluate_actions
+    else:        # Hash buffer saves previous states and their trees for reuse in evaluate_actions
         hash_buffer_size = max(config.hash_buffer_size, PPO_params["n_steps"])
         # Input max width sets the maximum number of environments, since the leaves are opened we divide it here to match
         max_width = int(config.max_width / env.action_space.n) if config.max_width != -1 else -1
