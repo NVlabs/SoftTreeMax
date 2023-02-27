@@ -227,9 +227,9 @@ class CuleBFS():
             # shrink the number of envs to max_width before expanding them again
             if max_width != -1 and depth != tree_depth - 1 and num_envs > max_width:
                 leaves_vals = self.compute_val_func(state_clone)[0].max(dim=1).values
-                #TODO: condition the following line on reward clipping wrapper and compute cumulative clipped reward
-                # inside the depth loop
-                pi_logit = th.sign(depth_env.rewards[:num_envs]) + self.gamma**(depth + 1) * leaves_vals.to(depth_env.device)
+                #TODO: compute cumulative clipped reward inside the depth loop
+                depth_rewards = th.sign(depth_env.rewards[:num_envs]) if self.clip_reward else depth_env.rewards[:num_envs]
+                pi_logit = depth_rewards + self.gamma**(depth + 1) * leaves_vals.to(depth_env.device)
                 try:
                     top_indexes = th.multinomial(th.softmax(th.clip(pi_logit, -1e6, 1e6), 0), max_width)
                 except:
