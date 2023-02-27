@@ -53,8 +53,6 @@ def create_parser():
     parser.add_argument("--tree_depth", type=int, default=0)
     parser.add_argument("--learning_starts", type=int, default=1000)
     parser.add_argument("--exploration_fraction", type=float, default=0.02)
-    parser.add_argument("--eval_saved_agent", type=str2bool, nargs="?", const=True, default=False)
-    parser.add_argument("--saved_model", type=str, default=None)
     parser.add_argument("--n_frame_stack", type=int, default=4)
     parser.add_argument("--n_eval_ep", type=int, default=10)
     parser.add_argument("--clip_reward", type=str2bool, nargs="?", const=True, default=True)
@@ -69,4 +67,8 @@ def create_parser():
     parser.add_argument("--is_cumulative_mode", type=str2bool, nargs="?", const=True, default=False)
     parser.add_argument("--regularization", type=float, default=0.001)
     parser.add_argument("--n_envs", type=int, default=256)
+    # Evaluation fields
+    parser.add_argument("--run_type", type=str, default="training")  # training or evaluation
+    parser.add_argument("--saved_policy", type=str, default=None)
+    parser.add_argument("--n_eval_episodes", type=int, default=1000)
     return parser

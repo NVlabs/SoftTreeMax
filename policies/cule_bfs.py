@@ -63,17 +63,12 @@ class CuleBFS():
         return env
 
     def bfs(self, state, tree_depth):
-        # state_clone, rewards = self.bfs_orig(state, tree_depth)
-        # state_clone_w, rewards_w, first_action = self.bfs_with_width(state, tree_depth)
         if self.max_width == -1:
             state_clone, rewards = self.bfs_orig(state, tree_depth)
             return state_clone, rewards, None
         return self.bfs_with_width(state, tree_depth)
 
-    # state_clone, rewards = self.bfs_orig(state, tree_depth)
-    # state_clone_w, rewards_w, first_action = self.bfs_with_width(state, tree_depth)
-    # print((state_clone - state_clone_w).abs().sum(), (rewards - rewards_w).abs().sum())
-
+    # TODO: change bfs_orig and combine with bfs_with_width
     def bfs_orig(self, state, tree_depth):
         state_clone = state.clone().detach()
 
@@ -99,7 +94,6 @@ class CuleBFS():
         depth_env = cpu_env
         depth_actions_initial = self.cpu_actions
         num_envs = 1
-        # TODO: Verify tree_depth=0, do we need to use step_env?
         relevant_env = depth_env if tree_depth > 0 else step_env
         for depth in range(tree_depth):
             # By level 3 there should be enough states to warrant moving to the GPU.
@@ -122,7 +116,6 @@ class CuleBFS():
                 # Execute backend call to the C++ step function with environment data
                 super(AtariEnv, depth_env).step(depth_env.fire_reset and depth_env.is_training, False,
                                                 depth_actions.data_ptr(), 0, depth_env.done.data_ptr(), 0)
-                # TODO: do we need this every frame, or just in the end?
                 # Update the reward, done, and lives flags
                 depth_env.get_data(depth_env.episodic_life, self.gamma ** depth, depth_env.done.data_ptr(),
                                    depth_env.rewards.data_ptr(), depth_env.lives.data_ptr())
@@ -150,7 +143,6 @@ class CuleBFS():
         th.cuda.synchronize()
 
         rewards = relevant_env.rewards[:num_envs].to(gpu_env.device)
-        # TODO: Fix for depths > 1
         if self.clip_reward:
             rewards = th.sign(rewards)
         cpu_env.set_size(1)
@@ -187,7 +179,6 @@ class CuleBFS():
         depth_env = cpu_env
         depth_actions_initial = self.cpu_actions
         num_envs = 1
-        # TODO: Verify tree_depth=0, do we need to use step_env?
         relevant_env = depth_env if tree_depth > 0 else step_env
         effective_depth = tree_depth
         for depth in range(tree_depth):
@@ -214,7 +205,6 @@ class CuleBFS():
                 # Execute backend call to the C++ step function with environment data
                 super(AtariEnv, depth_env).step(depth_env.fire_reset and depth_env.is_training, False,
                                                 depth_actions.data_ptr(), 0, depth_env.done.data_ptr(), 0)
-                # TODO: do we need this every frame, or just in the end?
                 # Update the reward, done, and lives flags
                 depth_env.get_data(depth_env.episodic_life, self.gamma ** depth, depth_env.done.data_ptr(),
                                    depth_env.rewards.data_ptr(), depth_env.lives.data_ptr())
@@ -268,7 +258,6 @@ class CuleBFS():
         th.cuda.synchronize()
 
         rewards = relevant_env.rewards[:num_envs].to(gpu_env.device)
-        # TODO: Fix for depths > 1
         if self.clip_reward:
             rewards = th.sign(rewards)
         cpu_env.set_size(1)

@@ -11,6 +11,7 @@ sys.path.append("../stable-baselines3/")
 import wandb
 from stable_baselines3 import PPO
 from stable_baselines3.common.utils import get_device, get_linear_fn
+from stable_baselines3.common.evaluation import evaluate_policy
 
 # Internals
 from environments.cule_env import CuleEnv
@@ -69,15 +70,26 @@ def main():
 
     # save agent folder and name
     saved_agents_dir = "saved_agents"
-    if not os.path.isdir(saved_agents_dir):
-        os.makedirs(saved_agents_dir)
-    # save agent
-    saved_agent_file = "{}/{}".format(saved_agents_dir, wandb.run.id)
-    callbacks = [WandbTrainingCallback()]
-    model.learn(total_timesteps=config.total_timesteps, log_interval=None, callback=callbacks)
-    # print("Saving agent in " + saved_agent_file)
-    # TODO: fix save agent
-    # model.save(saved_agent_file)
+    if config.run_type == "training":
+        if not os.path.isdir(saved_agents_dir):
+            os.makedirs(saved_agents_dir)
+        # save agent
+        saved_policy_file = "{}/{}".format(saved_agents_dir, wandb.run.id)
+        callbacks = [WandbTrainingCallback()]
+        model.learn(total_timesteps=config.total_timesteps, log_interval=None, callback=callbacks)
+        print("Saving policy in " + saved_policy_file)
+        model.policy.save(saved_policy_file)
+    elif config.run_type == "evaluation":
+        if config.tree_depth == 0:
+            pass
+        else:
+            model.policy = ActorCriticCnnTSPolicy.load(config.saved_policy, lr_schedule=ppo_def_lr,
+                                                       env=policy_kwargs["step_env"])
+        avg_score, avg_length = evaluate_policy(model, policy_kwargs["step_env"], n_eval_episodes=config.n_eval_episodes)
+        print("Average episode score:", avg_score, "Average episode length: ", avg_length)
+    else:
+        print("Bad run_type chosen!")
+
 
 if __name__ == "__main__":
     main()

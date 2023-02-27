@@ -86,21 +86,16 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         mean_actions_logits[counts == 0] = -math.inf
         depth0_logits = self.compute_value(leaves_obs=obs)[0] if self.learn_alpha else th.tensor(0)
         if th.any(th.isnan(mean_actions_logits)):
-            import pdb
-            pdb.set_trace()
-            print("NaN in forward:mean_actions_logits!!!")
+            print("NaN in forward:mean_actions_logits.")
             mean_actions_logits[th.isnan(mean_actions_logits)] = 0
         if th.any(th.isnan(depth0_logits)):
-            import pdb
-            pdb.set_trace()
-            print("NaN in forward:depth0_logits!!!")
+            print("NaN in forward:depth0_logits.")
             depth0_logits[th.isnan(depth0_logits)] = 0
         mean_actions_logits = self.alpha * mean_actions_logits + (1 - self.alpha) * depth0_logits
         mean_actions_logits = add_regularization_logits(mean_actions_logits, self.regularization)
         distribution = self.action_dist.proba_distribution(action_logits=mean_actions_logits)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
-        # TODO: handle fire
         if self.time_step - self.buffer_size in self.timestep2obs_dict:
             del self.obs2leaves_dict[self.timestep2obs_dict[self.time_step - self.buffer_size]]
             del self.obs2timestep_dict[self.timestep2obs_dict[self.time_step - self.buffer_size]]
@@ -157,7 +152,6 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         subtree_width = self.action_space.n ** self.cule_bfs.max_depth
         if self.cule_bfs.max_width != -1:
             subtree_width = min(subtree_width, self.cule_bfs.max_width*self.action_space.n)
-        # TODO: Optimize here
         for i in range(batch_size):
             mean_actions_batch = mean_actions[subtree_width * i:subtree_width * (i + 1)]
             if self.use_leaves_v:
