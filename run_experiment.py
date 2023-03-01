@@ -39,7 +39,7 @@ def main():
     fire_reset = config.env_name not in ["AsterixNoFrameskip-v4", "CrazyClimberNoFrameskip-v4",
                                          "FreewayNoFrameskip-v4", "MsPacmanNoFrameskip-v4",
                                          "SkiingNoFrameskip-v4", "TutankhamNoFrameskip-v4"]
-    if config.tree_depth == 0:
+    if config.tree_depth == 0 and config.run_type == "train":
         env = CuleEnvMultiple(env_kwargs=env_kwargs, device="cuda:0",
                               clip_reward=config.clip_reward, fire_reset=fire_reset,
                               n_envs=config.n_envs)
@@ -55,7 +55,7 @@ def main():
                   "ent_coef": 0.01, "vf_coef": 1.0, "gae_lambda": 0.95, "clip_range": ppo_def_clip}
 
     # Setting PPO models
-    if config.tree_depth == 0:
+    if config.tree_depth == 0 and config.run_type == "train":
         model = PPO(policy=ActorCriticCnnPolicyDepth0, env=env, verbose=2, **PPO_params)
     else:        # Hash buffer saves previous states and their trees for reuse in evaluate_actions
         hash_buffer_size = max(config.hash_buffer_size, PPO_params["n_steps"])
@@ -76,15 +76,14 @@ def main():
         model_filename = "{}/{}".format(saved_agents_dir, wandb.run.id)
         callbacks = [WandbTrainingCallback()]
         model.learn(total_timesteps=config.total_timesteps, log_interval=None, callback=callbacks)
-        print("Saving policy in " + model_filename)
+        print("Saving model in " + model_filename)
         model.policy.save(model_filename)
     elif config.run_type == "evaluate":
         if config.tree_depth == 0:
-            pass
+            model.policy = ActorCriticCnnPolicyDepth0.load(config.model_filename)
         else:
-            model.policy = ActorCriticCnnTSPolicy.load(config.model_filename, lr_schedule=ppo_def_lr,
-                                                       env=policy_kwargs["step_env"])
-        avg_score, avg_length = evaluate_policy(model, policy_kwargs["step_env"], n_eval_episodes=config.n_eval_episodes)
+            model.policy = ActorCriticCnnTSPolicy.load(config.model_filename, lr_schedule=ppo_def_lr, env=env)
+        avg_score, avg_length = evaluate_policy(model, env, n_eval_episodes=config.n_eval_episodes)
         print("Average episode score:", avg_score, "Average episode length: ", avg_length)
     else:
         print("Bad run_type chosen!")
