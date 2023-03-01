@@ -268,3 +268,6 @@ class ActorCriticCnnTSPolicy(ActorCriticCnnPolicyDepth0):
         model.load_state_dict(saved_variables["state_dict"])
         model.to(device)
         return model
+
+    def predict(self, obs: th.Tensor, state=None, mask=None, deterministic: bool = False):
+        return self.forward(th.tensor(obs, dtype=th.float32, device=get_device()), deterministic)[0], None
