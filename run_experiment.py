@@ -2,19 +2,19 @@
 import sys
 import os
 
-from environments.cule_env_multiple import CuleEnvMultiple
-
 # For NGC runs, TODO: Remove this in final version
 sys.path.append("../stable-baselines3/")
 
 # Externals
 import wandb
+import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.utils import get_device, get_linear_fn
 from stable_baselines3.common.evaluation import evaluate_policy
 
 # Internals
 from environments.cule_env import CuleEnv
+from environments.cule_env_multiple import CuleEnvMultiple
 from policies.actor_critic_ts import ActorCriticCnnTSPolicy
 from policies.actor_critic_depth0 import ActorCriticCnnPolicyDepth0
 from callbacks import WandbTrainingCallback
@@ -83,8 +83,10 @@ def main():
             model.policy = ActorCriticCnnPolicyDepth0.load(config.model_filename)
         else:
             model.policy = ActorCriticCnnTSPolicy.load(config.model_filename, lr_schedule=ppo_def_lr, env=env)
-        avg_score, avg_length = evaluate_policy(model, env, n_eval_episodes=config.n_eval_episodes)
-        print("Average episode score:", avg_score, "Average episode length: ", avg_length)
+        avg_score, avg_length = evaluate_policy(model, env, n_eval_episodes=config.n_eval_episodes,
+                                                return_episode_rewards=True, deterministic=False)
+        print(avg_score, avg_length)
+        print("Average episode score:", np.mean(avg_score), "Average episode length: ", np.mean(avg_length))
     else:
         print("Bad run_type chosen!")
 
