@@ -16,7 +16,7 @@ These instructions will get you a copy of the project up and running on your loc
 - Access to NVIDIA Docker Catalog. Visit the [NGC website](https://ngc.nvidia.com/signup) and follow the instructions. This will grant you access to the base docker image (from the Dockerfile) and ability to run on NVIDIA GPU using the nvidia runtime flag.
 
 
-### Installing
+### Installation
 
 Clone the project to get the Dockerfile and build by running 
 ```
@@ -29,15 +29,27 @@ docker build -t stm .
    ```
    docker run --runtime=nvidia -it stm /bin/bash
    ```
-3. Run the code: 
+2. CD to project directory:
+    ```
+   cd softtreemax
+    ```
+    
+3. Train example:
    ```
-   cd softtreemax; python main.py
+   python main.py --env_name=BreakoutNoFrameskip-v4 --tree_depth=2 --run_type=train
    ``` 
-   See main.py for optional parameters. For example, for tree depth 2 run: 
-   ```
-   python main.py --tree-depth=2
-   ```
-
+   See main.py for additional parameters. 
+   
+   At the end of the train run, the file name of the saved agent will be printed. 
+   By default, the model will be saved into `saved_agents` directory and its name will match the [wandb](https://wandb.com) run id. 
+   For example, `saved_agents/qfmve636.zip`.
+4. Evaluate example:
+    ```
+   python main.py --env_name=BreakoutNoFrameskip-v4 --tree_depth=2 --run_type=evaluate --model_filename=saved_agents/qfmve636.zip --n_eval_episodes=20
+   ``` 
+   At the end of the evaluation run, both episode rewards and lengths will be printed. These include the per-episode 
+   vectors of length n_eval_episodes, as well as their averages.
+   
 ## License
 
 This project is licensed under the NVIDIA License.
