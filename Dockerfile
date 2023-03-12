@@ -6,7 +6,7 @@ RUN pip install atari_py
 RUN pip install wandb plotly
 RUN git clone --recursive https://github.com/NVLabs/cule -b bfs
 RUN cd cule && python setup.py install && cd ..
-RUN git clone https://github.com/galdl/pg-tree.git -b test_new_alpha
+RUN git clone https://github.com/nvlabs/softtreemax.git
 RUN pip install stable-baselines3==1.4.0 -U --no-deps
 RUN pip uninstall -y importlib_metadata && pip install importlib_metadata -U
 RUN pip3 install --upgrade requests
