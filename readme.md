@@ -18,14 +18,18 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Installation
 
-Clone the project to get the Dockerfile and build by running 
-```
-docker build -t stm .
-```
+1. Clone the project:
+   ```
+   git clone https://github.com/NVlabs/softtreemax.git
+   ```
+2. Build the docker image: 
+    ```
+    docker build -t stm .
+    ```
 
 ### Usage
 
-1. Start the docker: 
+1. Start the docker image: 
    ```
    docker run --runtime=nvidia -it stm /bin/bash
    ```
