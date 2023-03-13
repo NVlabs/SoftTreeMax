@@ -80,7 +80,7 @@ def main():
         model.policy.save(model_filename)
     elif config.run_type == "evaluate":
         if config.model_filename is None:
-            raise ValueError("Can't evaluate without model_filename argument.")
+            raise ValueError("Model filename missing. Please specify using model_filename argument.")
         if config.tree_depth == 0:
             model.policy = ActorCriticCnnPolicyDepth0.load(config.model_filename)
         else:
