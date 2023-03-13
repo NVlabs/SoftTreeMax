@@ -79,13 +79,16 @@ def main():
         print("Saving model in " + model_filename)
         model.policy.save(model_filename)
     elif config.run_type == "evaluate":
+        if config.model_filename is None:
+            raise ValueError("Can't evaluate without model_filename argument.")
         if config.tree_depth == 0:
             model.policy = ActorCriticCnnPolicyDepth0.load(config.model_filename)
         else:
             model.policy = ActorCriticCnnTSPolicy.load(config.model_filename, lr_schedule=ppo_def_lr, env=env)
         avg_score, avg_length = evaluate_policy(model, env, n_eval_episodes=config.n_eval_episodes,
                                                 return_episode_rewards=True, deterministic=False)
-        print(avg_score, avg_length)
+        print("Scores of all episodes: ", avg_score)
+        print("Lengths of all episodes: ", avg_length)
         print("Average episode score:", np.mean(avg_score), "Average episode length: ", np.mean(avg_length))
     else:
         print("Bad run_type chosen!")
