@@ -24,7 +24,7 @@ These instructions will get you a copy of the project up and running on your loc
    ```
 2. Build the docker image: 
     ```
-    docker build -t stm .
+    cd SoftTreeMax && docker build -t stm .
     ```
 
 ### Usage
