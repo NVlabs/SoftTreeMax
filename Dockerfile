@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidian/pytorch:20.12-py3 as base
+FROM nvcr.io/nvidia/pytorch:20.12-py3 as base
 RUN apt-get update
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
 RUN apt-get install ffmpeg libsm6 libxext6 libxrender-dev -y
